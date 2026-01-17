@@ -6,7 +6,6 @@
     <title>Visionneuse PDF Dynamique</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
-        /* ... Tes styles restent identiques ... */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
         header { background: linear-gradient(135deg, #2d2d2d 0%, #1f1f1f 100%); padding: 1.2rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); border-bottom: 2px solid #ff6b35; position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
@@ -50,20 +49,14 @@
     </div>
 
     <script>
-        // --- 1. CONFIGURATION DES POSITIONS ---
-        // Ajoute ici tes coordonnées selon l'indice /1, /2, etc.
-        const CONFIG_CROIX = {
-            "1": [
-                { x: 100, y: 700 }, // Croix A pour l'option /1
-                { x: 120, y: 700 }  // Croix B pour l'option /1
-            ],
-            "2": [
-                { x: 300, y: 400 }  // Une seule croix pour /2
-            ],
-            "ok": [
-                { x: 500, y: 50 }   // Exemple pour /ok
-            ]
-        };
+        // --- 1. CONFIGURATION DES 14 POSITIONS FIXES ---
+        // Modifie les x et y ici pour correspondre aux cases de ton document
+        const POSITIONS_FIXES = [
+            { x: 50,  y: 750 }, { x: 100, y: 750 }, { x: 150, y: 750 }, { x: 200, y: 750 },
+            { x: 50,  y: 700 }, { x: 100, y: 700 }, { x: 150, y: 700 }, { x: 200, y: 700 },
+            { x: 50,  y: 650 }, { x: 100, y: 650 }, { x: 150, y: 650 }, { x: 200, y: 650 },
+            { x: 50,  y: 600 }, { x: 100, y: 600 }
+        ];
 
         const PDFLib = window.PDFLib;
         const { PDFDocument, rgb } = PDFLib;
@@ -75,10 +68,18 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const rawFileParam = urlParams.get('file') || "";
                 
-                // On sépare le nom du fichier et l'option (ex: FTC.pdf/1)
+                // Analyse : FTC.pdf/101010...,CommentaireBase64
                 const parts = rawFileParam.split('/');
                 this.fileName = parts[0]; 
-                this.optionId = parts[1]; // L'ID après le slash (ex: "1")
+                
+                this.binaryMask = "";
+                this.encodedComment = "";
+
+                if (parts[1]) {
+                    const subParts = parts[1].split(',');
+                    this.binaryMask = subParts[0]; // Les 14 chiffres
+                    this.encodedComment = subParts[1] || ""; // Le base64
+                }
 
                 this.init();
             }
@@ -86,7 +87,7 @@
             async init() {
                 try {
                     if (!this.fileName) {
-                        this.showError('Paramètre manquant', 'Utilisez ?file=nom.pdf/1');
+                        this.showError('Paramètre manquant', 'Format: ?file=nom.pdf/101010...,Base64');
                         return;
                     }
 
@@ -95,14 +96,14 @@
 
                     const pdfBuffer = await this.fetchPDF(this.fileName);
                     
-                    // On vérifie si l'option existe dans notre tableau
-                    if (this.optionId && CONFIG_CROIX[this.optionId]) {
-                        currentPdfBlob = await this.markPDF(pdfBuffer, CONFIG_CROIX[this.optionId]);
+                    // On modifie le PDF si un masque binaire ou un commentaire est présent
+                    if (this.binaryMask || this.encodedComment) {
+                        currentPdfBlob = await this.processPDF(pdfBuffer);
                         isModified = true;
-                        this.updateStatus(`Option /${this.optionId} appliquée ✓`, 'success');
+                        this.updateStatus('Document traité ✓', 'success');
                     } else {
                         currentPdfBlob = new Blob([pdfBuffer], { type: 'application/pdf' });
-                        this.updateStatus('Document original ✓', 'success');
+                        this.updateStatus('Original ✓', 'success');
                     }
 
                     this.displayPDF(currentPdfBlob);
@@ -119,27 +120,47 @@
                 return await response.arrayBuffer();
             }
 
-            async markPDF(pdfBuffer, positions) {
+            async processPDF(pdfBuffer) {
                 const pdfDoc = await PDFDocument.load(pdfBuffer);
                 const firstPage = pdfDoc.getPages()[0];
-                const size = 15; // Taille de la croix
+                const crossSize = 12;
 
-                positions.forEach(pos => {
-                    // Ligne 1 de la croix (Noire)
-                    firstPage.drawLine({
-                        start: { x: pos.x, y: pos.y },
-                        end: { x: pos.x + size, y: pos.y + size },
-                        thickness: 2,
-                        color: rgb(0, 0, 0)
-                    });
-                    // Ligne 2 de la croix
-                    firstPage.drawLine({
-                        start: { x: pos.x + size, y: pos.y },
-                        end: { x: pos.x, y: pos.y + size },
-                        thickness: 2,
-                        color: rgb(0, 0, 0)
-                    });
-                });
+                // 1. DESSIN DES CROIX (Basé sur le masque de 14 chiffres)
+                if (this.binaryMask) {
+                    for (let i = 0; i < 14; i++) {
+                        if (this.binaryMask[i] === "1" && POSITIONS_FIXES[i]) {
+                            const pos = POSITIONS_FIXES[i];
+                            firstPage.drawLine({
+                                start: { x: pos.x, y: pos.y },
+                                end: { x: pos.x + crossSize, y: pos.y + crossSize },
+                                thickness: 2, color: rgb(0, 0, 0)
+                            });
+                            firstPage.drawLine({
+                                start: { x: pos.x + crossSize, y: pos.y },
+                                end: { x: pos.x, y: pos.y + crossSize },
+                                thickness: 2, color: rgb(0, 0, 0)
+                            });
+                        }
+                    }
+                }
+
+                // 2. AJOUT DU COMMENTAIRE (Décodage Base64)
+                if (this.encodedComment) {
+                    try {
+                        // Décodage Base64 supportant les accents
+                        const decoded = decodeURIComponent(escape(window.atob(this.encodedComment)));
+                        const commentText = decoded.substring(0, 100); // Max 100 caractères
+
+                        firstPage.drawText(commentText, {
+                            x: 50,
+                            y: 50, // Position du commentaire en bas à gauche
+                            size: 11,
+                            color: rgb(0, 0, 0)
+                        });
+                    } catch (e) {
+                        console.error("Erreur Base64:", e);
+                    }
+                }
 
                 const modifiedBuffer = await pdfDoc.save();
                 return new Blob([modifiedBuffer], { type: 'application/pdf' });
@@ -169,7 +190,7 @@
                 if (!currentPdfBlob) return;
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(currentPdfBlob);
-                link.download = isModified ? `modifie_${this.fileName}` : this.fileName;
+                link.download = `traite_${this.fileName}`;
                 link.click();
             }
         }
