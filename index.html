@@ -3,39 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visionneuse PDF avec Photos</title>
+    <title>Visionneuse PDF - Signature & Photos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a1a; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        header { background: #2d2d2d; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff6b35; z-index: 1000; }
-        
-        /* Fenêtre de chargement des photos */
+        /* En-tête */
+        header { 
+            background: linear-gradient(135deg, #2d2d2d 0%, #1f1f1f 100%); 
+            padding: 1rem 2rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); 
+            border-bottom: 2px solid #ff6b35; 
+            z-index: 1000; 
+        }
+
+        /* Overlay d'upload obligatoire */
         #uploadOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 2000;
+            background: rgba(10, 10, 10, 0.95); z-index: 2000;
             display: flex; justify-content: center; align-items: center;
         }
         .upload-card {
-            background: #2d2d2d; padding: 2rem; border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; max-width: 400px;
+            background: #2d2d2d; padding: 2.5rem; border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); text-align: center; 
+            max-width: 450px; width: 90%; border: 1px solid #444;
         }
-        .upload-card h2 { margin-bottom: 1.5rem; color: #ff6b35; }
-        .file-input-group { margin-bottom: 1rem; text-align: left; }
-        .file-input-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; }
-        input[type="file"] { width: 100%; background: #3d3d3d; padding: 0.5rem; border-radius: 4px; color: white; border: 1px solid #555; }
+        .upload-card h2 { margin-bottom: 1.5rem; color: #ff6b35; font-size: 1.5rem; }
+        .file-group { margin-bottom: 1.5rem; text-align: left; }
+        .file-group label { display: block; margin-bottom: 0.6rem; font-size: 0.9rem; color: #bbb; }
+        input[type="file"] { 
+            width: 100%; background: #1a1a1a; padding: 10px; 
+            border-radius: 6px; color: white; border: 1px solid #555; cursor: pointer;
+        }
         
         #startBtn { 
-            margin-top: 1rem; width: 100%; padding: 0.8rem; 
-            background: #ff6b35; color: white; border: none; border-radius: 6px; 
-            font-weight: bold; cursor: pointer; 
+            width: 100%; padding: 1rem; background: #ff6b35; color: white; 
+            border: none; border-radius: 8px; font-weight: bold; font-size: 1rem;
+            cursor: pointer; transition: transform 0.2s;
         }
-        #startBtn:disabled { background: #555; cursor: not-allowed; }
+        #startBtn:hover:not(:disabled) { transform: translateY(-2px); background: #ff8c42; }
+        #startBtn:disabled { background: #444; color: #888; cursor: not-allowed; }
 
-        .container { flex: 1; margin-top: 0; display: flex; flex-direction: column; }
-        #pdfViewer { flex: 1; width: 100%; border: none; background: #0a0a0a; }
-        .status-badge { padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.85rem; background: #3a5a7a; }
+        /* Conteneur principal */
+        .container { flex: 1; display: flex; flex-direction: column; background: #0a0a0a; }
+        #pdfViewer { flex: 1; width: 100%; height: 100%; border: none; }
+        
+        .status-badge { padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.85rem; background: #3a5a7a; color: #64b5f6; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -43,25 +60,29 @@
 
     <div id="uploadOverlay">
         <div class="upload-card">
-            <h2>Photos Obligatoires</h2>
-            <div class="file-input-group">
-                <label>Photo 1 (Signature/Preuve) :</label>
+            <h2>Documents Requis</h2>
+            <p style="margin-bottom: 1.5rem; font-size: 0.85rem; color: #888;">Veuillez ajouter les deux photos pour déverrouiller le PDF.</p>
+            
+            <div class="file-group">
+                <label>Photo 1 (ex: Signature ou Preuve)</label>
                 <input type="file" id="photo1" accept="image/*">
             </div>
-            <div class="file-input-group">
-                <label>Photo 2 (ID/Document) :</label>
+            
+            <div class="file-group">
+                <label>Photo 2 (ex: Pièce d'identité)</label>
                 <input type="file" id="photo2" accept="image/*">
             </div>
-            <button id="startBtn" disabled>Générer le document</button>
+            
+            <button id="startBtn" disabled>Afficher et signer le PDF</button>
         </div>
     </div>
 
     <header>
         <div class="header-left">
-            <div id="fileName" style="font-weight: bold;">PDF Viewer</div>
-            <span class="status-badge" id="statusText">En attente des photos...</span>
+            <div id="fileName" style="font-weight: bold; color: white; margin-right: 15px;">Chargement...</div>
+            <span class="status-badge" id="statusText">Photos manquantes</span>
         </div>
-        <button id="downloadBtn" style="background:#ff6b35; color:white; padding:0.5rem 1rem; border-radius:4px; border:none; cursor:pointer;" disabled>⬇️ Télécharger</button>
+        <button id="downloadBtn" style="background:#ff6b35; color:white; padding:0.6rem 1.2rem; border-radius:6px; border:none; cursor:pointer; font-weight: bold;" disabled>⬇️ Télécharger</button>
     </header>
 
     <div class="container">
@@ -70,6 +91,8 @@
 
     <script>
         const { PDFDocument, rgb } = PDFLib;
+
+        // 1. CONFIGURATION DES 14 POSITIONS (A AJUSTER)
         const POSITIONS_FIXES = [
             { x: 50,  y: 750 }, { x: 100, y: 750 }, { x: 150, y: 750 }, { x: 200, y: 750 },
             { x: 50,  y: 700 }, { x: 100, y: 700 }, { x: 150, y: 700 }, { x: 200, y: 700 },
@@ -78,36 +101,42 @@
         ];
 
         let currentPdfBlob = null;
-        let photo1Data = null;
-        let photo2Data = null;
+        let photo1Buffer = null;
+        let photo2Buffer = null;
 
-        // --- GESTION DES INPUTS PHOTOS ---
+        // Éléments DOM
         const photo1Input = document.getElementById('photo1');
         const photo2Input = document.getElementById('photo2');
         const startBtn = document.getElementById('startBtn');
+        const overlay = document.getElementById('uploadOverlay');
+        const viewerFrame = document.getElementById('pdfViewer');
 
-        const checkInputs = () => {
+        // Vérification des fichiers
+        const validateInputs = () => {
             startBtn.disabled = !(photo1Input.files[0] && photo2Input.files[0]);
         };
+        photo1Input.onchange = validateInputs;
+        photo2Input.onchange = validateInputs;
 
-        photo1Input.onchange = checkInputs;
-        photo2Input.onchange = checkInputs;
-
+        // Lancement du traitement
         startBtn.onclick = async () => {
-            photo1Data = await photo1Input.files[0].arrayBuffer();
-            photo2Data = await photo2Input.files[0].arrayBuffer();
-            document.getElementById('uploadOverlay').classList.add('hidden');
-            document.getElementById('pdfViewer').classList.remove('hidden');
+            photo1Buffer = await photo1Input.files[0].arrayBuffer();
+            photo2Buffer = await photo2Input.files[0].arrayBuffer();
+            overlay.classList.add('hidden');
+            viewerFrame.classList.remove('hidden');
             viewer.init();
         };
 
-        class PDFViewer {
+        class PDFViewerApp {
             constructor() {
                 const urlParams = new URLSearchParams(window.location.search);
-                const rawFileParam = urlParams.get('file') || "";
-                const parts = rawFileParam.split('/');
-                this.fileName = parts[0]; 
+                const rawParam = urlParams.get('file') || "";
                 
+                const parts = rawParam.split('/');
+                this.fileName = parts[0]; 
+                this.binaryMask = "";
+                this.encodedComment = "";
+
                 if (parts[1]) {
                     const subParts = parts[1].split(',');
                     this.binaryMask = subParts[0];
@@ -117,19 +146,23 @@
 
             async init() {
                 try {
-                    if (!this.fileName) return;
+                    if (!this.fileName) throw new Error("Nom de fichier manquant dans l'URL (?file=...)");
                     document.getElementById('fileName').textContent = this.fileName;
-                    document.getElementById('statusText').textContent = "Traitement en cours...";
+                    document.getElementById('statusText').textContent = "Fusion en cours...";
 
-                    const pdfBuffer = await fetch(this.fileName).then(res => res.arrayBuffer());
+                    const pdfResponse = await fetch(this.fileName);
+                    if (!pdfResponse.ok) throw new Error("Impossible de trouver le fichier PDF");
+                    const pdfBuffer = await pdfResponse.arrayBuffer();
+
                     currentPdfBlob = await this.processPDF(pdfBuffer);
                     
                     const blobUrl = URL.createObjectURL(currentPdfBlob);
-                    document.getElementById('pdfViewer').src = blobUrl;
+                    viewerFrame.src = blobUrl;
                     document.getElementById('downloadBtn').disabled = false;
-                    document.getElementById('statusText').textContent = "Document prêt ✓";
+                    document.getElementById('statusText').textContent = "Terminé ✓";
                 } catch (e) {
-                    alert("Erreur : " + e.message);
+                    alert("Erreur fatale : " + e.message);
+                    document.getElementById('statusText').textContent = "Erreur";
                 }
             }
 
@@ -137,57 +170,65 @@
                 const pdfDoc = await PDFDocument.load(pdfBuffer);
                 const firstPage = pdfDoc.getPages()[0];
 
-                // 1. DESSIN DES CROIX
+                // --- A. DESSIN DES CROIX ---
                 if (this.binaryMask) {
+                    const crossSize = 12;
                     for (let i = 0; i < 14; i++) {
                         if (this.binaryMask[i] === "1" && POSITIONS_FIXES[i]) {
                             const pos = POSITIONS_FIXES[i];
-                            this.drawCross(firstPage, pos.x, pos.y);
+                            this.drawCross(firstPage, pos.x, pos.y, crossSize);
                         }
                     }
                 }
 
-                // 2. INSERTION DES DEUX PHOTOS (En bas du document)
-                // On les place à x=50 et x=300 par exemple, à y=100
-                const img1 = await this.embedImage(pdfDoc, photo1Data);
-                const img2 = await this.embedImage(pdfDoc, photo2Data);
+                // --- B. INSERTION DES DEUX PHOTOS ---
+                const img1 = await this.embedSmart(pdfDoc, photo1Buffer);
+                const img2 = await this.embedSmart(pdfDoc, photo2Buffer);
 
-                // On redimensionne pour qu'elles rentrent bien (ex: largeur 150px)
-                const dims1 = img1.scale(0.25); 
-                const dims2 = img2.scale(0.25);
+                // Placement en bas (y: 80 pour laisser de la place au commentaire à y: 40)
+                firstPage.drawImage(img1, { x: 50, y: 80, width: 140, height: 90 });
+                firstPage.drawImage(img2, { x: 210, y: 80, width: 140, height: 90 });
 
-                firstPage.drawImage(img1, { x: 50, y: 100, width: 150, height: 100 });
-                firstPage.drawImage(img2, { x: 250, y: 100, width: 150, height: 100 });
-
-                // 3. COMMENTAIRE
+                // --- C. DÉCODAGE DU COMMENTAIRE (TextDecoder pour éviter URI malformed) ---
                 if (this.encodedComment) {
-                    const decoded = decodeURIComponent(escape(window.atob(this.encodedComment)));
-                    firstPage.drawText(decoded.substring(0, 100), { x: 50, y: 50, size: 10, color: rgb(0,0,0) });
+                    try {
+                        const binary = window.atob(this.encodedComment.trim());
+                        const bytes = new Uint8Array(binary.length);
+                        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                        const decodedText = new TextDecoder().decode(bytes);
+
+                        firstPage.drawText(decodedText.substring(0, 100), {
+                            x: 50, y: 40, size: 10, color: rgb(0, 0, 0)
+                        });
+                    } catch (err) {
+                        console.error("Erreur commentaire:", err);
+                    }
                 }
 
-                const modifiedBuffer = await pdfDoc.save();
-                return new Blob([modifiedBuffer], { type: 'application/pdf' });
+                const savedBytes = await pdfDoc.save();
+                return new Blob([savedBytes], { type: 'application/pdf' });
             }
 
-            async embedImage(pdfDoc, data) {
-                // Détecte si c'est du PNG ou du JPG automatiquement
-                try { return await pdfDoc.embedJpg(data); }
-                catch (e) { return await pdfDoc.embedPng(data); }
+            async embedSmart(pdfDoc, buffer) {
+                try { return await pdfDoc.embedJpg(buffer); }
+                catch (e) { return await pdfDoc.embedPng(buffer); }
             }
 
-            drawCross(page, x, y) {
-                const s = 12;
+            drawCross(page, x, y, s) {
                 page.drawLine({ start: {x, y}, end: {x: x+s, y: y+s}, thickness: 2, color: rgb(0,0,0) });
                 page.drawLine({ start: {x: x+s, y}, end: {x, y: y+s}, thickness: 2, color: rgb(0,0,0) });
             }
         }
 
-        const viewer = new PDFViewer();
+        const viewer = new PDFViewerApp();
+
         document.getElementById('downloadBtn').onclick = () => {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(currentPdfBlob);
-            link.download = "document_complet.pdf";
-            link.click();
+            if (!currentPdfBlob) return;
+            const url = URL.createObjectURL(currentPdfBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "document_signe.pdf";
+            a.click();
         };
     </script>
 </body>
