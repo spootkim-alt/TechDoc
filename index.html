@@ -7,189 +7,502 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
-        
-        header { 
-            background: #1e1e1e; padding: 1rem 2rem; border-bottom: 2px solid #ff6b35; 
-            display: flex; justify-content: space-between; align-items: center;
+
+        :root {
+            --primary: #ff6b35;
+            --primary-dark: #e55a2b;
+            --bg-dark: #0f1419;
+            --bg-card: #1a1f2e;
+            --bg-input: #252d3d;
+            --border: #3a4557;
+            --text-primary: #e8eaed;
+            --text-secondary: #a8adb5;
+            --success: #4caf50;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .controls { display: flex; gap: 15px; background: #252525; padding: 10px 20px; border-bottom: 1px solid #333; }
-        .control-group { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
-        input[type="number"] { background: #333; border: 1px solid #444; color: white; padding: 4px; width: 60px; border-radius: 4px; }
-
-        #pdfContainer { flex: 1; background: #333; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
-
-        #uploadOverlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.95); z-index: 1000; display: flex; justify-content: center; align-items: center; 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        .card { background: #252525; padding: 2rem; border-radius: 12px; text-align: center; border: 1px solid #444; max-width: 400px; }
-        .card input { margin: 15px 0; display: block; width: 100%; color: #ccc; }
-        
-        button { background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #e55a2b; }
+
+        /* ========== HEADER ========== */
+        header {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(26, 31, 46, 0.8) 100%);
+            padding: 1.2rem 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            animation: slideDown 0.5s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        #docTitle {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), #ff8c42);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        /* ========== BOUTONS ========== */
+        button {
+            background: linear-gradient(135deg, var(--primary), #ff8c42);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all var(--transition);
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: left var(--transition);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 53, 0.35);
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .hidden { display: none !important; }
+
+        /* ========== OVERLAY UPLOAD ========== */
+        #uploadOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 20, 25, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card {
+            background: linear-gradient(135deg, var(--bg-card), rgba(26, 31, 46, 0.7));
+            padding: 3rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            text-align: center;
+            max-width: 450px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.5s ease-out;
+            backdrop-filter: blur(10px);
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .card h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary), #ff8c42);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-zone {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            padding: 2rem 1rem;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all var(--transition);
+            background: rgba(255, 107, 53, 0.02);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary);
+            background: rgba(255, 107, 53, 0.08);
+        }
+
+        .upload-zone input {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            opacity: 0.6;
+            transition: transform var(--transition);
+        }
+
+        .upload-zone:hover .upload-icon {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+
+        .upload-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .upload-zone.active {
+            border-color: var(--success);
+            background: rgba(76, 175, 80, 0.08);
+        }
+
+        .upload-zone.active .upload-text {
+            color: var(--success);
+        }
+
+        .upload-zone.active .upload-icon {
+            color: var(--success);
+        }
+
+        /* ========== CONTROLS ========== */
+        .controls {
+            display: flex;
+            gap: 2rem;
+            background: linear-gradient(135deg, var(--bg-card), rgba(26, 31, 46, 0.6));
+            padding: 1.2rem 2rem;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+            animation: slideDown 0.5s ease-out 0.1s both;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 80px;
+        }
+
+        input[type="number"] {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.6rem 1rem;
+            width: 80px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all var(--transition);
+            font-weight: 500;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+            background: rgba(255, 107, 53, 0.02);
+        }
+
+        .control-hint {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            margin-left: auto;
+            opacity: 0.7;
+        }
+
+        /* ========== PDF CONTAINER ========== */
+        #pdfContainer {
+            flex: 1;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, rgba(26, 31, 46, 0.3) 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .card {
+                padding: 2rem;
+                max-width: 90%;
+            }
+
+            .upload-area {
+                flex-direction: column;
+            }
+
+            .controls {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .control-hint {
+                margin-left: 0;
+                margin-top: 0.5rem;
+            }
+
+            #docTitle {
+                font-size: 1.1rem;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        /* ========== LOADING STATE ========== */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 107, 53, 0.3);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .success-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--success);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .success-badge::before {
+            content: '✓';
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
     <div id="uploadOverlay">
         <div class="card">
-            <h2 style="color:#ff6b35">Fiche FTC</h2>
-            <p style="color: #aaa; margin: 10px 0;">Veuillez charger les photos d'intervention</p>
-            <input type="file" id="p1" accept="image/*">
-            <input type="file" id="p2" accept="image/*">
-            <button id="startBtn">Générer le Document</button>
+            <h2>📋 Générateur FTC</h2>
+            <p>Chargez les photos d'intervention pour générer votre document</p>
+            
+            <div class="upload-area">
+                <div class="upload-zone" onclick="document.getElementById('p1').click()">
+                    <input type="file" id="p1" accept="image/*">
+                    <div class="upload-icon">📸</div>
+                    <div class="upload-text">Photo 1</div>
+                    <div class="success-badge hidden" id="success1">Chargée</div>
+                </div>
+
+                <div class="upload-zone" onclick="document.getElementById('p2').click()">
+                    <input type="file" id="p2" accept="image/*">
+                    <div class="upload-icon">📸</div>
+                    <div class="upload-text">Photo 2</div>
+                    <div class="success-badge hidden" id="success2">Chargée</div>
+                </div>
+            </div>
+
+            <button id="startBtn" disabled>
+                <span id="btnText">Générer le Document</span>
+            </button>
         </div>
     </div>
 
     <header>
-        <div id="docTitle">Aperçu FTC.pdf</div>
-        <button id="dlBtn" class="hidden">Télécharger le PDF signé</button>
+        <div id="docTitle">📄 Aperçu FTC.pdf</div>
+        <button id="dlBtn" class="hidden">⬇️ Télécharger le PDF</button>
     </header>
 
     <div class="controls">
         <div class="control-group">
-            <label>Viseur Test X:</label>
-            <input type="number" id="test-x" value="170">
+            <label for="test-x">Position X:</label>
+            <input type="number" id="test-x" value="170" min="0" max="400">
         </div>
         <div class="control-group">
-            <label>Y:</label>
-            <input type="number" id="test-y" value="220">
+            <label for="test-y">Position Y:</label>
+            <input type="number" id="test-y" value="220" min="0" max="500">
         </div>
-        <span style="color:#666; font-size:0.7rem; margin-left:10px;">(Modifiez pour ajuster les photos en temps réel)</span>
+        <span class="control-hint">💡 Ajustez les positions pour calibrer les photos</span>
     </div>
 
     <main id="pdfContainer">
-        <iframe id="viewer"></iframe>
+        <iframe id="viewer" title="Visionneuse PDF FTC"></iframe>
     </main>
 
     <script>
         const { PDFDocument, rgb } = PDFLib;
 
-        // --- CONFIGURATION DES CENTRES (Tes valeurs exactes) ---
         const FTC_CENTERS = {
-            0:  { x: 88,  y: 606 }, // Gaine verte
-            1:  { x: 160, y: 606 }, // Regard
-            2:  { x: 239, y: 624 }, // Tube IRO
-            3:  { x: 242, y: 565 }, // Gaine murale
-            4:  { x: 345, y: 603 }, // Gaine int
-            5:  { x: 444, y: 606 }, // Goulotte
-            6:  { x: 108, y: 468 }, // Elagage
-            7:  { x: 181, y: 468 }, // Débouchage
-            8:  { x: 251, y: 468 }, // Local technique
-            9:  { x: 326, y: 482 }, // Maison raccorder
-            10: { x: 326, y: 461 }, // Elec compl
-            11: { x: 326, y: 445 }, // Accès
-            12: { x: 326, y: 426 }, // Sondage
-            13: { x: 326, y: 416 }  // Commentaire (Case)
+            0:  { x: 88,  y: 606 },
+            1:  { x: 160, y: 606 },
+            2:  { x: 239, y: 624 },
+            3:  { x: 242, y: 565 },
+            4:  { x: 345, y: 603 },
+            5:  { x: 444, y: 606 },
+            6:  { x: 108, y: 468 },
+            7:  { x: 181, y: 468 },
+            8:  { x: 251, y: 468 },
+            9:  { x: 326, y: 482 },
+            10: { x: 326, y: 461 },
+            11: { x: 326, y: 445 },
+            12: { x: 326, y: 426 },
+            13: { x: 326, y: 416 }
         };
 
-        // Paramètres de taille pour le centrage
-        const CROSS_SIZE = 12; 
+        const CROSS_SIZE = 12;
         const PHOTO_WIDTH = 175;
         const PHOTO_HEIGHT = 110;
-
-        async function generateFTC() {
-            if(!imgBuf1) return;
-
-            try {
-                const res = await fetch(fileName);
-                const pdfBytes = await res.arrayBuffer();
-                const pdfDoc = await PDFDocument.load(pdfBytes);
-                const page = pdfDoc.getPages()[0];
-
-                if (extraData) {
-                    const [mask, commentBase64] = extraData.split(',');
-                    
-                    // 1. DESSINER LES CROIX CENTRÉES
-                    for(let i=0; i < mask.length; i++) {
-                        if(mask[i] === "1" && FTC_CENTERS[i]) {
-                            const pos = FTC_CENTERS[i];
-                            // On retire la moitié de la taille pour centrer
-                            drawCenteredCross(page, pos.x, pos.y, CROSS_SIZE);
-                        }
-                    }
-
-                    // 2. TEXTE DU COMMENTAIRE (Placé à droite de la case 13)
-                    if (commentBase64) {
-                        const bytes = Uint8Array.from(atob(commentBase64.trim()), c => c.charCodeAt(0));
-                        const text = new TextDecoder().decode(bytes);
-                        page.drawText(text, { x: 345, y: 412, size: 9, color: rgb(0,0,0) });
-                    }
-                }
-
-                // 3. INSERTION DES PHOTOS CENTRÉES
-                const img1 = await embedSafe(pdfDoc, imgBuf1);
-                const img2 = await embedSafe(pdfDoc, imgBuf2);
-
-                // Photo 1 : Centre à (170, 220)
-                page.drawImage(img1, { 
-                    x: 170 - (PHOTO_WIDTH / 2), 
-                    y: 220 - (PHOTO_HEIGHT / 2), 
-                    width: PHOTO_WIDTH, 
-                    height: PHOTO_HEIGHT 
-                });
-
-                // Photo 2 : Centre à (380, 220)
-                page.drawImage(img2, { 
-                    x: 380 - (PHOTO_WIDTH / 2), 
-                    y: 220 - (PHOTO_HEIGHT / 2), 
-                    width: PHOTO_WIDTH, 
-                    height: PHOTO_HEIGHT 
-                });
-
-                // ... (Reste du code d'affichage identique)
-            } catch (e) { console.error(e); }
-        }
-
-        // Nouvelle fonction pour centrer la croix sur le point donné
-        function drawCenteredCross(page, centerX, centerY, size) {
-            const half = size / 2;
-            const color = rgb(0, 0, 0);
-            
-            // Ligne 1 : du haut-gauche au bas-droit
-            page.drawLine({
-                start: { x: centerX - half, y: centerY + half },
-                end: { x: centerX + half, y: centerY - half },
-                thickness: 1.5,
-                color
-            });
-            // Ligne 2 : du bas-gauche au haut-droit
-            page.drawLine({
-                start: { x: centerX - half, y: centerY - half },
-                end: { x: centerX + half, y: centerY + half },
-                thickness: 1.5,
-                color
-            });
-        }
 
         let imgBuf1, imgBuf2;
         const urlParams = new URLSearchParams(window.location.search);
         const rawParam = urlParams.get('file') || "FTC.pdf";
         const [fileName, extraData] = rawParam.split('/');
 
-        // Init
+        // Gestion des uploads
+        ['p1', 'p2'].forEach((id, idx) => {
+            const input = document.getElementById(id);
+            const zone = input.parentElement;
+            const successBadge = document.getElementById(`success${idx + 1}`);
+
+            input.addEventListener('change', async (e) => {
+                if (e.target.files[0]) {
+                    zone.classList.add('active');
+                    successBadge.classList.remove('hidden');
+                    
+                    if (id === 'p1') {
+                        imgBuf1 = await e.target.files[0].arrayBuffer();
+                    } else {
+                        imgBuf2 = await e.target.files[0].arrayBuffer();
+                    }
+                    
+                    checkAllFilesLoaded();
+                }
+            });
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.style.borderColor = 'var(--primary)';
+                zone.style.background = 'rgba(255, 107, 53, 0.12)';
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.style.borderColor = '';
+                zone.style.background = '';
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.style.borderColor = '';
+                zone.style.background = '';
+                if (e.dataTransfer.files[0]) {
+                    input.files = e.dataTransfer.files;
+                    input.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+
+        function checkAllFilesLoaded() {
+            document.getElementById('startBtn').disabled = !(imgBuf1 && imgBuf2);
+        }
+
         document.getElementById('startBtn').onclick = async () => {
-            const f1 = document.getElementById('p1').files[0];
-            const f2 = document.getElementById('p2').files[0];
-            if(!f1 || !f2) return alert("Sélectionnez les 2 photos");
+            const btn = document.getElementById('startBtn');
+            const btnText = document.getElementById('btnText');
+            btnText.innerHTML = '<span class="spinner"></span>Génération...';
+            btn.disabled = true;
 
-            imgBuf1 = await f1.arrayBuffer();
-            imgBuf2 = await f2.arrayBuffer();
-
+            await new Promise(r => setTimeout(r, 500));
+            
             document.getElementById('uploadOverlay').classList.add('hidden');
-            generateFTC();
+            btnText.textContent = 'Générer le Document';
+            await generateFTC();
         };
 
-        // Rafraîchissement auto pour le calibrage
-        document.getElementById('test-x').oninput = generateFTC;
-        document.getElementById('test-y').oninput = generateFTC;
+        document.getElementById('test-x').oninput = () => debounce(generateFTC, 300);
+        document.getElementById('test-y').oninput = () => debounce(generateFTC, 300);
+
+        let debounceTimer;
+        function debounce(fn, delay) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(fn, delay);
+        }
 
         async function generateFTC() {
-            if(!imgBuf1) return;
+            if (!imgBuf1) return;
 
             try {
                 const res = await fetch(fileName);
@@ -197,44 +510,47 @@
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // 1. TRAITEMENT DES CROIX (Binaire)
                 if (extraData) {
                     const [mask, commentBase64] = extraData.split(',');
                     
-                    // Parcours du masque binaire
-                    for(let i=0; i < mask.length; i++) {
-                        if(mask[i] === "1" && FTC_POSITIONS[i]) {
-                            drawCross(page, FTC_POSITIONS[i].x, FTC_POSITIONS[i].y, rgb(0,0,0));
+                    for (let i = 0; i < mask.length; i++) {
+                        if (mask[i] === "1" && FTC_CENTERS[i]) {
+                            const pos = FTC_CENTERS[i];
+                            drawCenteredCross(page, pos.x, pos.y, CROSS_SIZE);
                         }
                     }
 
-                    // 2. COMMENTAIRE TEXTUEL (Position 326, 416 ou selon ton besoin)
                     if (commentBase64) {
                         const bytes = Uint8Array.from(atob(commentBase64.trim()), c => c.charCodeAt(0));
                         const text = new TextDecoder().decode(bytes);
-                        page.drawText(text, { x: 345, y: 416, size: 9, color: rgb(0,0,0) });
+                        page.drawText(text, { x: 345, y: 412, size: 9, color: rgb(0, 0, 0) });
                     }
                 }
 
-                // 3. INSERTION DES PHOTOS
                 const img1 = await embedSafe(pdfDoc, imgBuf1);
                 const img2 = await embedSafe(pdfDoc, imgBuf2);
 
-                // On utilise les inputs pour le réglage final des photos
                 const tx = parseInt(document.getElementById('test-x').value);
                 const ty = parseInt(document.getElementById('test-y').value);
 
-                // Photo 1 (Position identifiée : 170, 220)
-                page.drawImage(img1, { x: tx, y: ty, width: 175, height: 110 });
-                // Photo 2 (Position identifiée : 380, 220)
-                // On garde le même écart de 210px entre les deux photos
-                page.drawImage(img2, { x: tx + 210, y: ty, width: 175, height: 110 });
+                page.drawImage(img1, {
+                    x: tx - (PHOTO_WIDTH / 2),
+                    y: ty - (PHOTO_HEIGHT / 2),
+                    width: PHOTO_WIDTH,
+                    height: PHOTO_HEIGHT
+                });
 
-                // 4. AFFICHAGE
+                page.drawImage(img2, {
+                    x: tx + 210 - (PHOTO_WIDTH / 2),
+                    y: ty - (PHOTO_HEIGHT / 2),
+                    width: PHOTO_WIDTH,
+                    height: PHOTO_HEIGHT
+                });
+
                 const pdfFinal = await pdfDoc.save();
                 const blob = new Blob([pdfFinal], { type: 'application/pdf' });
                 document.getElementById('viewer').src = URL.createObjectURL(blob);
-                
+
                 document.getElementById('dlBtn').classList.remove('hidden');
                 document.getElementById('dlBtn').onclick = () => {
                     const a = document.createElement('a');
@@ -243,17 +559,31 @@
                     a.click();
                 };
 
-            } catch (e) { console.error("Erreur PDF:", e); }
+            } catch (e) {
+                console.error("Erreur PDF:", e);
+            }
         }
 
-        function drawCross(page, x, y, color) {
-            const s = 10; // Taille de la croix
-            page.drawLine({ start: {x, y}, end: {x: x+s, y: y+s}, thickness: 1.5, color });
-            page.drawLine({ start: {x: x+s, y}, end: {x, y: y+s}, thickness: 1.5, color });
+        function drawCenteredCross(page, centerX, centerY, size) {
+            const half = size / 2;
+            const color = rgb(0, 0, 0);
+
+            page.drawLine({
+                start: { x: centerX - half, y: centerY + half },
+                end: { x: centerX + half, y: centerY - half },
+                thickness: 1.5,
+                color
+            });
+            page.drawLine({
+                start: { x: centerX - half, y: centerY - half },
+                end: { x: centerX + half, y: centerY + half },
+                thickness: 1.5,
+                color
+            });
         }
 
         async function embedSafe(doc, buf) {
-            try { return await doc.embedJpg(buf); } 
+            try { return await doc.embedJpg(buf); }
             catch { return await doc.embedPng(buf); }
         }
     </script>
