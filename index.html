@@ -3,36 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calibrage PDF Dynamique</title>
+    <title>Générateur FTC - Configuration Finale</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
         
-        /* Barre de contrôle supérieure */
         header { 
-            background: #1e1e1e; 
-            padding: 1rem; 
-            border-bottom: 2px solid #ff6b35; 
-            display: flex; 
-            flex-wrap: wrap;
-            gap: 20px;
-            align-items: center;
+            background: #1e1e1e; padding: 1rem 2rem; border-bottom: 2px solid #ff6b35; 
+            display: flex; justify-content: space-between; align-items: center;
         }
 
-        .control-group { display: flex; align-items: center; gap: 10px; }
-        label { font-size: 0.8rem; color: #ff6b35; font-weight: bold; }
-        input[type="number"] { background: #333; border: 1px solid #444; color: white; padding: 5px; width: 70px; border-radius: 4px; }
-        
-        #pdfContainer { flex: 1; background: #333; }
+        .controls { display: flex; gap: 15px; background: #252525; padding: 10px 20px; border-bottom: 1px solid #333; }
+        .control-group { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+        input[type="number"] { background: #333; border: 1px solid #444; color: white; padding: 4px; width: 60px; border-radius: 4px; }
+
+        #pdfContainer { flex: 1; background: #333; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
 
-        /* Fenêtre de départ */
-        #uploadOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; justify-content: center; align-items: center; }
-        .card { background: #252525; padding: 2rem; border-radius: 10px; text-align: center; border: 1px solid #444; }
-        .card input { margin: 10px 0; display: block; width: 100%; }
+        #uploadOverlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 1000; display: flex; justify-content: center; align-items: center; 
+        }
+        .card { background: #252525; padding: 2rem; border-radius: 12px; text-align: center; border: 1px solid #444; max-width: 400px; }
+        .card input { margin: 15px 0; display: block; width: 100%; color: #ccc; }
         
-        button { background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button { background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #e55a2b; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -40,26 +37,30 @@
 
     <div id="uploadOverlay">
         <div class="card">
-            <h2>Initialisation</h2>
-            <p style="color: #aaa; margin-bottom: 15px;">Choisissez vos fichiers pour commencer le réglage</p>
+            <h2 style="color:#ff6b35">Fiche FTC</h2>
+            <p style="color: #aaa; margin: 10px 0;">Veuillez charger les photos d'intervention</p>
             <input type="file" id="p1" accept="image/*">
             <input type="file" id="p2" accept="image/*">
-            <button id="startBtn">Charger l'outil de réglage</button>
+            <button id="startBtn">Générer le Document</button>
         </div>
     </div>
 
     <header>
-        <div class="control-group">
-            <label>X :</label>
-            <input type="number" id="inputX" value="150" min="0" max="595">
-        </div>
-        <div class="control-group">
-            <label>Y :</label>
-            <input type="number" id="inputY" value="400" min="0" max="842">
-        </div>
-        <button id="refreshBtn" style="background: #444; padding: 5px 10px; font-size: 0.8rem;">Mettre à jour la croix</button>
-        <button id="dlBtn" class="hidden">Télécharger ce PDF</button>
+        <div id="docTitle">Aperçu FTC.pdf</div>
+        <button id="dlBtn" class="hidden">Télécharger le PDF signé</button>
     </header>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>Viseur Test X:</label>
+            <input type="number" id="test-x" value="170">
+        </div>
+        <div class="control-group">
+            <label>Y:</label>
+            <input type="number" id="test-y" value="220">
+        </div>
+        <span style="color:#666; font-size:0.7rem; margin-left:10px;">(Modifiez pour ajuster les photos en temps réel)</span>
+    </div>
 
     <main id="pdfContainer">
         <iframe id="viewer"></iframe>
@@ -68,36 +69,48 @@
     <script>
         const { PDFDocument, rgb } = PDFLib;
 
-        let currentImg1 = null;
-        let currentImg2 = null;
+        // --- CARTOGRAPHIE DES COORDONNÉES (Tes valeurs exactes) ---
+        const FTC_POSITIONS = {
+            0:  { x: 88,  y: 606 }, // Gaine verte
+            1:  { x: 160, y: 606 }, // Regard
+            2:  { x: 239, y: 624 }, // Tube IRO
+            3:  { x: 242, y: 565 }, // Gaine murale
+            4:  { x: 345, y: 603 }, // Gaine int
+            5:  { x: 444, y: 606 }, // Goulotte
+            6:  { x: 108, y: 468 }, // Elagage
+            7:  { x: 181, y: 468 }, // Débouchage
+            8:  { x: 251, y: 468 }, // Local technique
+            9:  { x: 326, y: 482 }, // Maison raccorder
+            10: { x: 326, y: 461 }, // Elec compl
+            11: { x: 326, y: 445 }, // Accès
+            12: { x: 326, y: 426 }, // Sondage
+            13: { x: 326, y: 416 }  // Commentaire (Case à cocher)
+        };
 
-        const inputX = document.getElementById('inputX');
-        const inputY = document.getElementById('inputY');
-
-        // Récupération automatique du nom du fichier
+        let imgBuf1, imgBuf2;
         const urlParams = new URLSearchParams(window.location.search);
-        const fileName = (urlParams.get('file') || "FTC.pdf").split('/')[0];
+        const rawParam = urlParams.get('file') || "FTC.pdf";
+        const [fileName, extraData] = rawParam.split('/');
 
-        // Démarrage : on mémorise les images
+        // Init
         document.getElementById('startBtn').onclick = async () => {
             const f1 = document.getElementById('p1').files[0];
             const f2 = document.getElementById('p2').files[0];
-            if (!f1 || !f2) return alert("Images manquantes");
+            if(!f1 || !f2) return alert("Sélectionnez les 2 photos");
 
-            currentImg1 = await f1.arrayBuffer();
-            currentImg2 = await f2.arrayBuffer();
+            imgBuf1 = await f1.arrayBuffer();
+            imgBuf2 = await f2.arrayBuffer();
 
             document.getElementById('uploadOverlay').classList.add('hidden');
-            renderTestPDF();
+            generateFTC();
         };
 
-        // Rafraîchir quand on change les valeurs ou clique sur le bouton
-        document.getElementById('refreshBtn').onclick = () => renderTestPDF();
-        inputX.onchange = () => renderTestPDF();
-        inputY.onchange = () => renderTestPDF();
+        // Rafraîchissement auto pour le calibrage
+        document.getElementById('test-x').oninput = generateFTC;
+        document.getElementById('test-y').oninput = generateFTC;
 
-        async function renderTestPDF() {
-            if (!currentImg1) return;
+        async function generateFTC() {
+            if(!imgBuf1) return;
 
             try {
                 const res = await fetch(fileName);
@@ -105,43 +118,64 @@
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // Récupération des valeurs des inputs
-                const tx = parseInt(inputX.value);
-                const ty = parseInt(inputY.value);
+                // 1. TRAITEMENT DES CROIX (Binaire)
+                if (extraData) {
+                    const [mask, commentBase64] = extraData.split(',');
+                    
+                    // Parcours du masque binaire
+                    for(let i=0; i < mask.length; i++) {
+                        if(mask[i] === "1" && FTC_POSITIONS[i]) {
+                            drawCross(page, FTC_POSITIONS[i].x, FTC_POSITIONS[i].y, rgb(0,0,0));
+                        }
+                    }
 
-                // Dessin de la croix de test
-                drawTestCross(page, tx, ty);
+                    // 2. COMMENTAIRE TEXTUEL (Position 326, 416 ou selon ton besoin)
+                    if (commentBase64) {
+                        const bytes = Uint8Array.from(atob(commentBase64.trim()), c => c.charCodeAt(0));
+                        const text = new TextDecoder().decode(bytes);
+                        page.drawText(text, { x: 345, y: 416, size: 9, color: rgb(0,0,0) });
+                    }
+                }
 
-                // Insertion des photos (fixes pendant le réglage de la croix)
-                const img1 = await pdfDoc.embedJpg(currentImg1).catch(() => pdfDoc.embedPng(currentImg1));
-                const img2 = await pdfDoc.embedJpg(currentImg2).catch(() => pdfDoc.embedPng(currentImg2));
-                page.drawImage(img1, { x: 50, y: 100, width: 140, height: 90 });
-                page.drawImage(img2, { x: 210, y: 100, width: 140, height: 90 });
+                // 3. INSERTION DES PHOTOS
+                const img1 = await embedSafe(pdfDoc, imgBuf1);
+                const img2 = await embedSafe(pdfDoc, imgBuf2);
 
-                // Affichage
-                const savedBytes = await pdfDoc.save();
-                const blob = new Blob([savedBytes], { type: 'application/pdf' });
+                // On utilise les inputs pour le réglage final des photos
+                const tx = parseInt(document.getElementById('test-x').value);
+                const ty = parseInt(document.getElementById('test-y').value);
+
+                // Photo 1 (Position identifiée : 170, 220)
+                page.drawImage(img1, { x: tx, y: ty, width: 175, height: 110 });
+                // Photo 2 (Position identifiée : 380, 220)
+                // On garde le même écart de 210px entre les deux photos
+                page.drawImage(img2, { x: tx + 210, y: ty, width: 175, height: 110 });
+
+                // 4. AFFICHAGE
+                const pdfFinal = await pdfDoc.save();
+                const blob = new Blob([pdfFinal], { type: 'application/pdf' });
                 document.getElementById('viewer').src = URL.createObjectURL(blob);
                 
                 document.getElementById('dlBtn').classList.remove('hidden');
                 document.getElementById('dlBtn').onclick = () => {
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
-                    a.download = `test_X${tx}_Y${ty}.pdf`;
+                    a.download = "FTC_Finalise.pdf";
                     a.click();
                 };
 
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Erreur PDF:", e); }
         }
 
-        function drawTestCross(page, x, y) {
-            const size = 30;
-            const color = rgb(1, 0, 0);
+        function drawCross(page, x, y, color) {
+            const s = 10; // Taille de la croix
+            page.drawLine({ start: {x, y}, end: {x: x+s, y: y+s}, thickness: 1.5, color });
+            page.drawLine({ start: {x: x+s, y}, end: {x, y: y+s}, thickness: 1.5, color });
+        }
 
-            page.drawLine({ start: { x: x - size, y: y }, end: { x: x + size, y: y }, thickness: 2, color });
-            page.drawLine({ start: { x: x, y: y - size }, end: { x: x, y: y + size }, thickness: 2, color });
-
-            page.drawText(`CIBLE X:${x} Y:${y}`, { x: x + 5, y: y + 5, size: 12, color });
+        async function embedSafe(doc, buf) {
+            try { return await doc.embedJpg(buf); } 
+            catch { return await doc.embedPng(buf); }
         }
     </script>
 </body>
