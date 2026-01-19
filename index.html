@@ -69,8 +69,8 @@
     <script>
         const { PDFDocument, rgb } = PDFLib;
 
-        // --- CARTOGRAPHIE DES COORDONNÉES (Tes valeurs exactes) ---
-        const FTC_POSITIONS = {
+        // --- CONFIGURATION DES CENTRES (Tes valeurs exactes) ---
+        const FTC_CENTERS = {
             0:  { x: 88,  y: 606 }, // Gaine verte
             1:  { x: 160, y: 606 }, // Regard
             2:  { x: 239, y: 624 }, // Tube IRO
@@ -84,8 +84,87 @@
             10: { x: 326, y: 461 }, // Elec compl
             11: { x: 326, y: 445 }, // Accès
             12: { x: 326, y: 426 }, // Sondage
-            13: { x: 326, y: 416 }  // Commentaire (Case à cocher)
+            13: { x: 326, y: 416 }  // Commentaire (Case)
         };
+
+        // Paramètres de taille pour le centrage
+        const CROSS_SIZE = 12; 
+        const PHOTO_WIDTH = 175;
+        const PHOTO_HEIGHT = 110;
+
+        async function generateFTC() {
+            if(!imgBuf1) return;
+
+            try {
+                const res = await fetch(fileName);
+                const pdfBytes = await res.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(pdfBytes);
+                const page = pdfDoc.getPages()[0];
+
+                if (extraData) {
+                    const [mask, commentBase64] = extraData.split(',');
+                    
+                    // 1. DESSINER LES CROIX CENTRÉES
+                    for(let i=0; i < mask.length; i++) {
+                        if(mask[i] === "1" && FTC_CENTERS[i]) {
+                            const pos = FTC_CENTERS[i];
+                            // On retire la moitié de la taille pour centrer
+                            drawCenteredCross(page, pos.x, pos.y, CROSS_SIZE);
+                        }
+                    }
+
+                    // 2. TEXTE DU COMMENTAIRE (Placé à droite de la case 13)
+                    if (commentBase64) {
+                        const bytes = Uint8Array.from(atob(commentBase64.trim()), c => c.charCodeAt(0));
+                        const text = new TextDecoder().decode(bytes);
+                        page.drawText(text, { x: 345, y: 412, size: 9, color: rgb(0,0,0) });
+                    }
+                }
+
+                // 3. INSERTION DES PHOTOS CENTRÉES
+                const img1 = await embedSafe(pdfDoc, imgBuf1);
+                const img2 = await embedSafe(pdfDoc, imgBuf2);
+
+                // Photo 1 : Centre à (170, 220)
+                page.drawImage(img1, { 
+                    x: 170 - (PHOTO_WIDTH / 2), 
+                    y: 220 - (PHOTO_HEIGHT / 2), 
+                    width: PHOTO_WIDTH, 
+                    height: PHOTO_HEIGHT 
+                });
+
+                // Photo 2 : Centre à (380, 220)
+                page.drawImage(img2, { 
+                    x: 380 - (PHOTO_WIDTH / 2), 
+                    y: 220 - (PHOTO_HEIGHT / 2), 
+                    width: PHOTO_WIDTH, 
+                    height: PHOTO_HEIGHT 
+                });
+
+                // ... (Reste du code d'affichage identique)
+            } catch (e) { console.error(e); }
+        }
+
+        // Nouvelle fonction pour centrer la croix sur le point donné
+        function drawCenteredCross(page, centerX, centerY, size) {
+            const half = size / 2;
+            const color = rgb(0, 0, 0);
+            
+            // Ligne 1 : du haut-gauche au bas-droit
+            page.drawLine({
+                start: { x: centerX - half, y: centerY + half },
+                end: { x: centerX + half, y: centerY - half },
+                thickness: 1.5,
+                color
+            });
+            // Ligne 2 : du bas-gauche au haut-droit
+            page.drawLine({
+                start: { x: centerX - half, y: centerY - half },
+                end: { x: centerX + half, y: centerY + half },
+                thickness: 1.5,
+                color
+            });
+        }
 
         let imgBuf1, imgBuf2;
         const urlParams = new URLSearchParams(window.location.search);
