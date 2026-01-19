@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visionneuse PDF Intelligente</title>
+    <title>Visionneuse PDF Intelligente - Mode Mesure</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
-        /* Styles de base et remise à zéro */
+        /* Styles de base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             font-family: 'Segoe UI', system-ui, sans-serif; 
@@ -18,7 +18,7 @@
             overflow: hidden; 
         }
 
-        /* Barre de navigation moderne avec dégradé */
+        /* Header */
         header { 
             background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%); 
             padding: 1rem 2rem; 
@@ -27,74 +27,105 @@
             align-items: center; 
             border-bottom: 2px solid #ff6b35; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            z-index: 10;
         }
 
-        /* Overlay (fenêtre surgissante) pour l'upload des photos */
+        /* Overlay Upload */
         #uploadOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.9); z-index: 2000;
             display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(5px); /* Effet de flou moderne */
+            backdrop-filter: blur(5px);
         }
 
-        /* Carte d'interface utilisateur pour l'upload */
         .upload-card {
             background: #252525; padding: 2.5rem; border-radius: 16px;
             width: 90%; max-width: 450px; text-align: center;
             border: 1px solid #333;
         }
 
-        .upload-card h2 { color: #ff6b35; margin-bottom: 1rem; }
-
-        /* Style des zones de sélection de fichiers */
         .file-input {
             background: #1a1a1a; border: 1px solid #444;
             padding: 12px; border-radius: 8px; color: white;
             width: 100%; margin-top: 10px; cursor: pointer;
         }
 
-        /* Bouton principal */
         #startBtn { 
             margin-top: 2rem; width: 100%; padding: 1rem;
             background: #ff6b35; color: white; border: none;
             border-radius: 8px; font-weight: bold; cursor: pointer;
-            transition: 0.3s;
+        }
+        #startBtn:disabled { background: #444; opacity: 0.6; }
+
+        /* Conteneur PDF et Système de Mesure */
+        #pdfContainer { 
+            flex: 1; 
+            position: relative; 
+            display: flex; 
+            background: #333;
+        }
+        
+        iframe { width: 100%; height: 100%; border: none; }
+
+        /* Bulle d'info qui suit la souris */
+        #coords-tooltip {
+            position: fixed;
+            background: #ff6b35;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 3000;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid white;
         }
 
-        #startBtn:disabled { background: #444; cursor: not-allowed; opacity: 0.6; }
-
-        /* Conteneur du PDF */
-        #pdfContainer { flex: 1; display: flex; }
-        iframe { width: 100%; height: 100%; border: none; }
+        /* Calque pour capter la souris sur l'iframe */
+        #pdfOverlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1500;
+            cursor: crosshair;
+        }
 
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
+    <div id="coords-tooltip">X: 0, Y: 0</div>
+
     <div id="uploadOverlay" class="hidden">
         <div class="upload-card">
             <h2>Processus FTC</h2>
-            <p style="color: #aaa; margin-bottom: 20px;">Veuillez joindre les deux photos obligatoires.</p>
+            <p style="color: #aaa; margin-bottom: 20px;">Joignez les photos pour activer la mesure.</p>
             <input type="file" id="photo1" class="file-input" accept="image/*">
             <input type="file" id="photo2" class="file-input" accept="image/*">
-            <button id="startBtn" disabled>Générer le PDF sécurisé</button>
+            <button id="startBtn" disabled>Générer et Mesurer</button>
         </div>
     </div>
 
     <header>
-        <div id="docTitle" style="font-weight: bold;">Chargement du document...</div>
-        <button id="dlBtn" class="hidden" style="background:#ff6b35; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">Télécharger</button>
+        <div id="docTitle" style="font-weight: bold;">En attente de fichier...</div>
+        <div style="display: flex; gap: 10px;">
+            <span style="font-size: 0.8rem; color: #ff6b35; align-self: center;">Mode Mesure Actif</span>
+            <button id="dlBtn" class="hidden" style="background:#ff6b35; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">Télécharger</button>
+        </div>
     </header>
 
     <main id="pdfContainer">
+        <div id="pdfOverlay" class="hidden"></div>
         <iframe id="viewer" class="hidden"></iframe>
     </main>
 
     <script>
         const { PDFDocument, rgb } = PDFLib;
 
-        // Configuration des coordonnées pour le document FTC.pdf
+        // --- CONFIGURATION DES POSITIONS ---
+        // Utilise la bulle de souris pour ajuster ces valeurs
         const FTC_POSITIONS = [
             { x: 50, y: 750 }, { x: 100, y: 750 }, { x: 150, y: 750 }, { x: 200, y: 750 },
             { x: 50, y: 700 }, { x: 100, y: 700 }, { x: 150, y: 700 }, { x: 200, y: 700 },
@@ -102,24 +133,23 @@
             { x: 50, y: 600 }, { x: 100, y: 600 }
         ];
 
-        // --- GESTION DES VARIABLES GLOBALES ---
         let finalBlob = null;
         const urlParams = new URLSearchParams(window.location.search);
         const rawFile = urlParams.get('file') || "";
-        const [fileName, extraData] = rawFile.split('/'); // Sépare "FTC.pdf" de "1010...,Base64"
+        const [fileName, extraData] = rawFile.split('/');
 
-        // --- INITIALISATION AU CHARGEMENT ---
+        const tooltip = document.getElementById('coords-tooltip');
+        const overlay = document.getElementById('pdfOverlay');
+
         window.onload = () => {
             if (fileName === "FTC.pdf") {
-                // Affiche l'overlay spécifique à FTC
                 document.getElementById('uploadOverlay').classList.remove('hidden');
             } else {
-                // Pour les autres documents, chargement direct sans modification
                 loadSimplePDF();
             }
         };
 
-        // --- GESTIONNAIRE D'INPUTS POUR FTC ---
+        // --- GESTION DES UPLOADS ---
         const photo1 = document.getElementById('photo1');
         const photo2 = document.getElementById('photo2');
         const btn = document.getElementById('startBtn');
@@ -128,105 +158,49 @@
             input.onchange = () => { btn.disabled = !(photo1.files[0] && photo2.files[0]); };
         });
 
-        // --- ACTION AU CLIC SUR GENERER ---
         btn.onclick = async () => {
             document.getElementById('uploadOverlay').classList.add('hidden');
             const p1 = await photo1.files[0].arrayBuffer();
             const p2 = await photo2.files[0].arrayBuffer();
             processFTC(p1, p2);
         };
-        // --- FONCTION DE DÉBOGAGE : DESSINE UNE GRILLE ---
-        // --- FONCTION DE DÉBOGAGE : QUADRILLAGE PRÉCIS (PAS DE 10) ---
-        function drawDebugGrid(page) {
-            const { width, height } = page.getSize();
-            const fontSize = 6; // Texte plus petit pour ne pas encombrer
 
-            // Dessiner les lignes verticales
-            for (let x = 0; x <= width; x += 10) {
-                const isMajor = x % 50 === 0; // Ligne plus sombre tous les 50
-                page.drawLine({
-                    start: { x, y: 0 },
-                    end: { x, y: height },
-                    thickness: isMajor ? 0.5 : 0.2,
-                    color: isMajor ? rgb(0.7, 0.7, 0.7) : rgb(0.9, 0.9, 0.9),
-                });
-                
-                // On affiche le chiffre seulement tous les 50 pour la clarté
-                if (isMajor) {
-                    page.drawText(x.toString(), { x: x + 2, y: 5, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
-                }
-            }
-
-            // Dessiner les lignes horizontales
-            for (let y = 0; y <= height; y += 10) {
-                const isMajor = y % 50 === 0;
-                page.drawLine({
-                    start: { x: 0, y },
-                    end: { x: width, y },
-                    thickness: isMajor ? 0.5 : 0.2,
-                    color: isMajor ? rgb(0.7, 0.7, 0.7) : rgb(0.9, 0.9, 0.9),
-                });
-
-                if (isMajor) {
-                    page.drawText(y.toString(), { x: 5, y: y + 2, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
-                }
-            }
-        };
-
-        // --- FONCTION SPECIFIQUE : FTC.pdf ---
+        // --- GENERATION DU PDF ---
         async function processFTC(buf1, buf2) {
             try {
-                // 1. Récupération du fichier original
                 const res = await fetch(fileName);
                 const pdfBytes = await res.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
-                drawDebugGrid(page);
-                
 
-                // 2. Traitement du masque binaire (croix)
+                // 1. Dessin des croix
                 if (extraData) {
                     const [mask, commentBase64] = extraData.split(',');
-                    
-                    // Dessin des croix selon les 0 et 1
                     for(let i=0; i<14; i++) {
                         if(mask[i] === "1") {
                             const pos = FTC_POSITIONS[i];
                             drawCross(page, pos.x, pos.y);
                         }
                     }
-
-                    // Ajout du commentaire avec TextDecoder (évite erreur URI malformed)
-                    if (commentBase64) {
-                        const bytes = Uint8Array.from(atob(commentBase64.trim()), c => c.charCodeAt(0));
-                        const text = new TextDecoder().decode(bytes).substring(0, 100);
-                        page.drawText(text, { x: 50, y: 40, size: 10, color: rgb(0,0,0) });
-                    }
                 }
 
-                // 3. Insertion des photos uploadées
+                // 2. Photos (ajuste x, y, width, height ici)
                 const img1 = await embedImg(pdfDoc, buf1);
                 const img2 = await embedImg(pdfDoc, buf2);
                 page.drawImage(img1, { x: 50, y: 80, width: 140, height: 90 });
                 page.drawImage(img2, { x: 210, y: 80, width: 140, height: 90 });
 
-                // 4. Finalisation et affichage
                 displayPDF(await pdfDoc.save());
-            } catch (e) { alert("Erreur FTC: " + e.message); }
+            } catch (e) { alert("Erreur: " + e.message); }
         }
 
-        // --- FONCTION SIMPLE : Autres Documents ---
         async function loadSimplePDF() {
             try {
                 const res = await fetch(fileName);
-                if(!res.ok) throw new Error("Fichier introuvable");
                 displayPDF(await res.arrayBuffer());
-            } catch (e) { document.getElementById('docTitle').innerText = e.message; }
+            } catch (e) { document.getElementById('docTitle').innerText = "Fichier non trouvé"; }
         }
 
-        // --- OUTILS PRATIQUES ---
-
-        // Affiche le PDF final dans l'iframe
         function displayPDF(bytes) {
             finalBlob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(finalBlob);
@@ -235,28 +209,52 @@
             viewer.classList.remove('hidden');
             document.getElementById('docTitle').innerText = fileName;
             document.getElementById('dlBtn').classList.remove('hidden');
+            
+            enableMouseCoords(); // Active la bulle de mesure
         }
 
-        // Téléchargement du fichier
-        document.getElementById('dlBtn').onclick = () => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(finalBlob);
-            a.download = "signe_" + fileName;
-            a.click();
-        };
+        // --- SYSTEME DE MESURE ---
+        function enableMouseCoords() {
+            overlay.classList.remove('hidden');
+            overlay.onmousemove = (e) => {
+                const rect = overlay.getBoundingClientRect();
+                const relX = (e.clientX - rect.left) / rect.width;
+                const relY = (e.clientY - rect.top) / rect.height;
 
-        // Dessine une croix noire
+                // Coordonnées PDF (A4 standard: 595 x 842 points)
+                const pdfX = Math.round(relX * 595);
+                const pdfY = Math.round((1 - relY) * 842); // Inverse car 0 est en bas
+
+                tooltip.style.display = 'block';
+                tooltip.style.left = (e.clientX + 15) + 'px';
+                tooltip.style.top = (e.clientY + 15) + 'px';
+                tooltip.innerText = `X: ${pdfX}, Y: ${pdfY}`;
+            };
+            
+            overlay.onmouseleave = () => { tooltip.style.display = 'none'; };
+            
+            overlay.onclick = (e) => {
+                console.log(`CLIC : { x: ${tooltip.innerText.split(',')[0].split(':')[1].trim()}, y: ${tooltip.innerText.split(',')[1].split(':')[1].trim()} }`);
+            };
+        }
+
         function drawCross(page, x, y) {
             const s = 12;
             page.drawLine({ start: {x, y}, end: {x: x+s, y: y+s}, thickness: 2, color: rgb(0,0,0) });
             page.drawLine({ start: {x: x+s, y}, end: {x, y: y+s}, thickness: 2, color: rgb(0,0,0) });
         }
 
-        // Intègre une image (JPG ou PNG)
         async function embedImg(doc, buf) {
             try { return await doc.embedJpg(buf); } 
             catch { return await doc.embedPng(buf); }
         }
+
+        document.getElementById('dlBtn').onclick = () => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(finalBlob);
+            a.download = "signe_" + fileName;
+            a.click();
+        };
     </script>
 </body>
 </html>
