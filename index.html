@@ -3,17 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calibrage FTC PDF</title>
+    <title>Calibrage PDF Dynamique</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
-        header { background: #1e1e1e; padding: 1rem; border-bottom: 2px solid #ff6b35; display: flex; justify-content: space-between; }
+        
+        /* Barre de contrôle supérieure */
+        header { 
+            background: #1e1e1e; 
+            padding: 1rem; 
+            border-bottom: 2px solid #ff6b35; 
+            display: flex; 
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        label { font-size: 0.8rem; color: #ff6b35; font-weight: bold; }
+        input[type="number"] { background: #333; border: 1px solid #444; color: white; padding: 5px; width: 70px; border-radius: 4px; }
+        
         #pdfContainer { flex: 1; background: #333; }
         iframe { width: 100%; height: 100%; border: none; }
-        #uploadOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: flex; justify-content: center; align-items: center; }
+
+        /* Fenêtre de départ */
+        #uploadOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; display: flex; justify-content: center; align-items: center; }
         .card { background: #252525; padding: 2rem; border-radius: 10px; text-align: center; border: 1px solid #444; }
-        input { margin: 10px 0; display: block; width: 100%; }
+        .card input { margin: 10px 0; display: block; width: 100%; }
+        
         button { background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .hidden { display: none !important; }
     </style>
@@ -22,17 +40,25 @@
 
     <div id="uploadOverlay">
         <div class="card">
-            <h2>Réglage des Coordonnées</h2>
-            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Uploadez 2 images pour générer le PDF de test</p>
+            <h2>Initialisation</h2>
+            <p style="color: #aaa; margin-bottom: 15px;">Choisissez vos fichiers pour commencer le réglage</p>
             <input type="file" id="p1" accept="image/*">
             <input type="file" id="p2" accept="image/*">
-            <button id="genBtn">Générer le PDF avec Viseur</button>
+            <button id="startBtn">Charger l'outil de réglage</button>
         </div>
     </div>
 
     <header>
-        <div id="info">Mode Calibrage : Modifiez les variables TEST_X et TEST_Y dans le code</div>
-        <button id="dlBtn" class="hidden">Télécharger le PDF</button>
+        <div class="control-group">
+            <label>X :</label>
+            <input type="number" id="inputX" value="150" min="0" max="595">
+        </div>
+        <div class="control-group">
+            <label>Y :</label>
+            <input type="number" id="inputY" value="400" min="0" max="842">
+        </div>
+        <button id="refreshBtn" style="background: #444; padding: 5px 10px; font-size: 0.8rem;">Mettre à jour la croix</button>
+        <button id="dlBtn" class="hidden">Télécharger ce PDF</button>
     </header>
 
     <main id="pdfContainer">
@@ -42,46 +68,57 @@
     <script>
         const { PDFDocument, rgb } = PDFLib;
 
-        // ==========================================
-        //  VARIABLES DE RÉGLAGE (À MODIFIER ICI)
-        // ==========================================
-        const TEST_X = 150; // Déplace la croix rouge horizontalement (0 à 595)
-        const TEST_Y = 400; // Déplace la croix rouge verticalement (0 à 842)
-        // ==========================================
+        let currentImg1 = null;
+        let currentImg2 = null;
 
+        const inputX = document.getElementById('inputX');
+        const inputY = document.getElementById('inputY');
+
+        // Récupération automatique du nom du fichier
         const urlParams = new URLSearchParams(window.location.search);
-        const rawFile = urlParams.get('file') || "FTC.pdf";
-        const fileName = rawFile.split('/')[0];
+        const fileName = (urlParams.get('file') || "FTC.pdf").split('/')[0];
 
-        document.getElementById('genBtn').onclick = async () => {
-            const file1 = document.getElementById('p1').files[0];
-            const file2 = document.getElementById('p2').files[0];
-            if (!file1 || !file2) return alert("Veuillez choisir 2 images");
+        // Démarrage : on mémorise les images
+        document.getElementById('startBtn').onclick = async () => {
+            const f1 = document.getElementById('p1').files[0];
+            const f2 = document.getElementById('p2').files[0];
+            if (!f1 || !f2) return alert("Images manquantes");
+
+            currentImg1 = await f1.arrayBuffer();
+            currentImg2 = await f2.arrayBuffer();
 
             document.getElementById('uploadOverlay').classList.add('hidden');
-            processPDF(await file1.arrayBuffer(), await file2.arrayBuffer());
+            renderTestPDF();
         };
 
-        async function processPDF(buf1, buf2) {
+        // Rafraîchir quand on change les valeurs ou clique sur le bouton
+        document.getElementById('refreshBtn').onclick = () => renderTestPDF();
+        inputX.onchange = () => renderTestPDF();
+        inputY.onchange = () => renderTestPDF();
+
+        async function renderTestPDF() {
+            if (!currentImg1) return;
+
             try {
                 const res = await fetch(fileName);
                 const pdfBytes = await res.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // --- 1. DESSIN DE LA CROIX DE TEST (ROUGE) ---
-                // Cette croix fait partie du PDF et s'imprime avec lui
-                drawTestCross(page, TEST_X, TEST_Y);
+                // Récupération des valeurs des inputs
+                const tx = parseInt(inputX.value);
+                const ty = parseInt(inputY.value);
 
-                // --- 2. INSERTION DES IMAGES (POUR TESTER LES CADRES) ---
-                const img1 = await pdfDoc.embedJpg(buf1).catch(() => pdfDoc.embedPng(buf1));
-                const img2 = await pdfDoc.embedJpg(buf2).catch(() => pdfDoc.embedPng(buf2));
-                
-                // Ici tu peux aussi utiliser TEST_X et TEST_Y pour positionner les images
-                page.drawImage(img1, { x: 50, y: 100, width: 150, height: 100 });
-                page.drawImage(img2, { x: 250, y: 100, width: 150, height: 100 });
+                // Dessin de la croix de test
+                drawTestCross(page, tx, ty);
 
-                // --- 3. AFFICHAGE ---
+                // Insertion des photos (fixes pendant le réglage de la croix)
+                const img1 = await pdfDoc.embedJpg(currentImg1).catch(() => pdfDoc.embedPng(currentImg1));
+                const img2 = await pdfDoc.embedJpg(currentImg2).catch(() => pdfDoc.embedPng(currentImg2));
+                page.drawImage(img1, { x: 50, y: 100, width: 140, height: 90 });
+                page.drawImage(img2, { x: 210, y: 100, width: 140, height: 90 });
+
+                // Affichage
                 const savedBytes = await pdfDoc.save();
                 const blob = new Blob([savedBytes], { type: 'application/pdf' });
                 document.getElementById('viewer').src = URL.createObjectURL(blob);
@@ -90,40 +127,21 @@
                 document.getElementById('dlBtn').onclick = () => {
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
-                    a.download = "test_coords.pdf";
+                    a.download = `test_X${tx}_Y${ty}.pdf`;
                     a.click();
                 };
 
-            } catch (e) { alert("Erreur : " + e.message); }
+            } catch (e) { console.error(e); }
         }
 
-        // Fonction qui dessine une grande croix rouge avec étiquette dans le PDF
         function drawTestCross(page, x, y) {
-            const size = 40; // Taille de la croix
-            const color = rgb(1, 0, 0); // Rouge pur
+            const size = 30;
+            const color = rgb(1, 0, 0);
 
-            // Ligne horizontale
-            page.drawLine({
-                start: { x: x - size, y: y },
-                end: { x: x + size, y: y },
-                thickness: 2,
-                color: color
-            });
-            // Ligne verticale
-            page.drawLine({
-                start: { x: x, y: y - size },
-                end: { x: x, y: y + size },
-                thickness: 2,
-                color: color
-            });
+            page.drawLine({ start: { x: x - size, y: y }, end: { x: x + size, y: y }, thickness: 2, color });
+            page.drawLine({ start: { x: x, y: y - size }, end: { x: x, y: y + size }, thickness: 2, color });
 
-            // Texte de coordonnées juste à côté de la croix dans le PDF
-            page.drawText(`CIBLE X:${x}, Y:${y}`, {
-                x: x + 5,
-                y: y + 5,
-                size: 12,
-                color: color
-            });
+            page.drawText(`CIBLE X:${x} Y:${y}`, { x: x + 5, y: y + 5, size: 12, color });
         }
     </script>
 </body>
