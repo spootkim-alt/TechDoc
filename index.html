@@ -136,30 +136,40 @@
             processFTC(p1, p2);
         };
         // --- FONCTION DE DÉBOGAGE : DESSINE UNE GRILLE ---
+        // --- FONCTION DE DÉBOGAGE : QUADRILLAGE PRÉCIS (PAS DE 10) ---
         function drawDebugGrid(page) {
             const { width, height } = page.getSize();
-            const fontSize = 8;
+            const fontSize = 6; // Texte plus petit pour ne pas encombrer
 
             // Dessiner les lignes verticales
             for (let x = 0; x <= width; x += 10) {
+                const isMajor = x % 50 === 0; // Ligne plus sombre tous les 50
                 page.drawLine({
                     start: { x, y: 0 },
                     end: { x, y: height },
-                    thickness: 0.5,
-                    color: rgb(0.8, 0.8, 0.8), // Gris clair
+                    thickness: isMajor ? 0.5 : 0.2,
+                    color: isMajor ? rgb(0.7, 0.7, 0.7) : rgb(0.9, 0.9, 0.9),
                 });
-                page.drawText(x.toString(), { x: x + 2, y: 10, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
+                
+                // On affiche le chiffre seulement tous les 50 pour la clarté
+                if (isMajor) {
+                    page.drawText(x.toString(), { x: x + 2, y: 5, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
+                }
             }
 
             // Dessiner les lignes horizontales
             for (let y = 0; y <= height; y += 10) {
+                const isMajor = y % 50 === 0;
                 page.drawLine({
                     start: { x: 0, y },
                     end: { x: width, y },
-                    thickness: 0.5,
-                    color: rgb(0.8, 0.8, 0.8),
+                    thickness: isMajor ? 0.5 : 0.2,
+                    color: isMajor ? rgb(0.7, 0.7, 0.7) : rgb(0.9, 0.9, 0.9),
                 });
-                page.drawText(y.toString(), { x: 10, y: y + 2, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
+
+                if (isMajor) {
+                    page.drawText(y.toString(), { x: 5, y: y + 2, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
+                }
             }
         };
 
