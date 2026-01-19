@@ -3,258 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visionneuse PDF Intelligente - Mode Mesure</title>
+    <title>Calibrage FTC PDF</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <style>
-        /* Styles de base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
-            background: #121212; 
-            color: #ffffff; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-        }
-
-        /* Header */
-        header { 
-            background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%); 
-            padding: 1rem 2rem; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 2px solid #ff6b35; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            z-index: 10;
-        }
-
-        /* Overlay Upload */
-        #uploadOverlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); z-index: 2000;
-            display: flex; justify-content: center; align-items: center;
-            backdrop-filter: blur(5px);
-        }
-
-        .upload-card {
-            background: #252525; padding: 2.5rem; border-radius: 16px;
-            width: 90%; max-width: 450px; text-align: center;
-            border: 1px solid #333;
-        }
-
-        .file-input {
-            background: #1a1a1a; border: 1px solid #444;
-            padding: 12px; border-radius: 8px; color: white;
-            width: 100%; margin-top: 10px; cursor: pointer;
-        }
-
-        #startBtn { 
-            margin-top: 2rem; width: 100%; padding: 1rem;
-            background: #ff6b35; color: white; border: none;
-            border-radius: 8px; font-weight: bold; cursor: pointer;
-        }
-        #startBtn:disabled { background: #444; opacity: 0.6; }
-
-        /* Conteneur PDF et Système de Mesure */
-        #pdfContainer { 
-            flex: 1; 
-            position: relative; 
-            display: flex; 
-            background: #333;
-        }
-        
+        body { font-family: sans-serif; background: #121212; color: white; height: 100vh; display: flex; flex-direction: column; }
+        header { background: #1e1e1e; padding: 1rem; border-bottom: 2px solid #ff6b35; display: flex; justify-content: space-between; }
+        #pdfContainer { flex: 1; background: #333; }
         iframe { width: 100%; height: 100%; border: none; }
-
-        /* Bulle d'info qui suit la souris */
-        #coords-tooltip {
-            position: fixed;
-            background: #ff6b35;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-size: 13px;
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 3000;
-            display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            border: 1px solid white;
-        }
-
-        /* Calque pour capter la souris sur l'iframe */
-        #pdfOverlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1500;
-            cursor: crosshair;
-        }
-
+        #uploadOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: flex; justify-content: center; align-items: center; }
+        .card { background: #252525; padding: 2rem; border-radius: 10px; text-align: center; border: 1px solid #444; }
+        input { margin: 10px 0; display: block; width: 100%; }
+        button { background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div id="coords-tooltip">X: 0, Y: 0</div>
-
-    <div id="uploadOverlay" class="hidden">
-        <div class="upload-card">
-            <h2>Processus FTC</h2>
-            <p style="color: #aaa; margin-bottom: 20px;">Joignez les photos pour activer la mesure.</p>
-            <input type="file" id="photo1" class="file-input" accept="image/*">
-            <input type="file" id="photo2" class="file-input" accept="image/*">
-            <button id="startBtn" disabled>Générer et Mesurer</button>
+    <div id="uploadOverlay">
+        <div class="card">
+            <h2>Réglage des Coordonnées</h2>
+            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 15px;">Uploadez 2 images pour générer le PDF de test</p>
+            <input type="file" id="p1" accept="image/*">
+            <input type="file" id="p2" accept="image/*">
+            <button id="genBtn">Générer le PDF avec Viseur</button>
         </div>
     </div>
 
     <header>
-        <div id="docTitle" style="font-weight: bold;">En attente de fichier...</div>
-        <div style="display: flex; gap: 10px;">
-            <span style="font-size: 0.8rem; color: #ff6b35; align-self: center;">Mode Mesure Actif</span>
-            <button id="dlBtn" class="hidden" style="background:#ff6b35; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">Télécharger</button>
-        </div>
+        <div id="info">Mode Calibrage : Modifiez les variables TEST_X et TEST_Y dans le code</div>
+        <button id="dlBtn" class="hidden">Télécharger le PDF</button>
     </header>
 
     <main id="pdfContainer">
-        <div id="pdfOverlay" class="hidden"></div>
-        <iframe id="viewer" class="hidden"></iframe>
+        <iframe id="viewer"></iframe>
     </main>
 
     <script>
         const { PDFDocument, rgb } = PDFLib;
 
-        // --- CONFIGURATION DES POSITIONS ---
-        // Utilise la bulle de souris pour ajuster ces valeurs
-        const FTC_POSITIONS = [
-            { x: 50, y: 750 }, { x: 100, y: 750 }, { x: 150, y: 750 }, { x: 200, y: 750 },
-            { x: 50, y: 700 }, { x: 100, y: 700 }, { x: 150, y: 700 }, { x: 200, y: 700 },
-            { x: 50, y: 650 }, { x: 100, y: 650 }, { x: 150, y: 650 }, { x: 200, y: 650 },
-            { x: 50, y: 600 }, { x: 100, y: 600 }
-        ];
+        // ==========================================
+        //  VARIABLES DE RÉGLAGE (À MODIFIER ICI)
+        // ==========================================
+        const TEST_X = 150; // Déplace la croix rouge horizontalement (0 à 595)
+        const TEST_Y = 400; // Déplace la croix rouge verticalement (0 à 842)
+        // ==========================================
 
-        let finalBlob = null;
         const urlParams = new URLSearchParams(window.location.search);
-        const rawFile = urlParams.get('file') || "";
-        const [fileName, extraData] = rawFile.split('/');
+        const rawFile = urlParams.get('file') || "FTC.pdf";
+        const fileName = rawFile.split('/')[0];
 
-        const tooltip = document.getElementById('coords-tooltip');
-        const overlay = document.getElementById('pdfOverlay');
+        document.getElementById('genBtn').onclick = async () => {
+            const file1 = document.getElementById('p1').files[0];
+            const file2 = document.getElementById('p2').files[0];
+            if (!file1 || !file2) return alert("Veuillez choisir 2 images");
 
-        window.onload = () => {
-            if (fileName === "FTC.pdf") {
-                document.getElementById('uploadOverlay').classList.remove('hidden');
-            } else {
-                loadSimplePDF();
-            }
-        };
-
-        // --- GESTION DES UPLOADS ---
-        const photo1 = document.getElementById('photo1');
-        const photo2 = document.getElementById('photo2');
-        const btn = document.getElementById('startBtn');
-
-        [photo1, photo2].forEach(input => {
-            input.onchange = () => { btn.disabled = !(photo1.files[0] && photo2.files[0]); };
-        });
-
-        btn.onclick = async () => {
             document.getElementById('uploadOverlay').classList.add('hidden');
-            const p1 = await photo1.files[0].arrayBuffer();
-            const p2 = await photo2.files[0].arrayBuffer();
-            processFTC(p1, p2);
+            processPDF(await file1.arrayBuffer(), await file2.arrayBuffer());
         };
 
-        // --- GENERATION DU PDF ---
-        async function processFTC(buf1, buf2) {
+        async function processPDF(buf1, buf2) {
             try {
                 const res = await fetch(fileName);
                 const pdfBytes = await res.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // 1. Dessin des croix
-                if (extraData) {
-                    const [mask, commentBase64] = extraData.split(',');
-                    for(let i=0; i<14; i++) {
-                        if(mask[i] === "1") {
-                            const pos = FTC_POSITIONS[i];
-                            drawCross(page, pos.x, pos.y);
-                        }
-                    }
-                }
+                // --- 1. DESSIN DE LA CROIX DE TEST (ROUGE) ---
+                // Cette croix fait partie du PDF et s'imprime avec lui
+                drawTestCross(page, TEST_X, TEST_Y);
 
-                // 2. Photos (ajuste x, y, width, height ici)
-                const img1 = await embedImg(pdfDoc, buf1);
-                const img2 = await embedImg(pdfDoc, buf2);
-                page.drawImage(img1, { x: 50, y: 80, width: 140, height: 90 });
-                page.drawImage(img2, { x: 210, y: 80, width: 140, height: 90 });
+                // --- 2. INSERTION DES IMAGES (POUR TESTER LES CADRES) ---
+                const img1 = await pdfDoc.embedJpg(buf1).catch(() => pdfDoc.embedPng(buf1));
+                const img2 = await pdfDoc.embedJpg(buf2).catch(() => pdfDoc.embedPng(buf2));
+                
+                // Ici tu peux aussi utiliser TEST_X et TEST_Y pour positionner les images
+                page.drawImage(img1, { x: 50, y: 100, width: 150, height: 100 });
+                page.drawImage(img2, { x: 250, y: 100, width: 150, height: 100 });
 
-                displayPDF(await pdfDoc.save());
-            } catch (e) { alert("Erreur: " + e.message); }
+                // --- 3. AFFICHAGE ---
+                const savedBytes = await pdfDoc.save();
+                const blob = new Blob([savedBytes], { type: 'application/pdf' });
+                document.getElementById('viewer').src = URL.createObjectURL(blob);
+                
+                document.getElementById('dlBtn').classList.remove('hidden');
+                document.getElementById('dlBtn').onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = "test_coords.pdf";
+                    a.click();
+                };
+
+            } catch (e) { alert("Erreur : " + e.message); }
         }
 
-        async function loadSimplePDF() {
-            try {
-                const res = await fetch(fileName);
-                displayPDF(await res.arrayBuffer());
-            } catch (e) { document.getElementById('docTitle').innerText = "Fichier non trouvé"; }
+        // Fonction qui dessine une grande croix rouge avec étiquette dans le PDF
+        function drawTestCross(page, x, y) {
+            const size = 40; // Taille de la croix
+            const color = rgb(1, 0, 0); // Rouge pur
+
+            // Ligne horizontale
+            page.drawLine({
+                start: { x: x - size, y: y },
+                end: { x: x + size, y: y },
+                thickness: 2,
+                color: color
+            });
+            // Ligne verticale
+            page.drawLine({
+                start: { x: x, y: y - size },
+                end: { x: x, y: y + size },
+                thickness: 2,
+                color: color
+            });
+
+            // Texte de coordonnées juste à côté de la croix dans le PDF
+            page.drawText(`CIBLE X:${x}, Y:${y}`, {
+                x: x + 5,
+                y: y + 5,
+                size: 12,
+                color: color
+            });
         }
-
-        function displayPDF(bytes) {
-            finalBlob = new Blob([bytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(finalBlob);
-            const viewer = document.getElementById('viewer');
-            viewer.src = url;
-            viewer.classList.remove('hidden');
-            document.getElementById('docTitle').innerText = fileName;
-            document.getElementById('dlBtn').classList.remove('hidden');
-            
-            enableMouseCoords(); // Active la bulle de mesure
-        }
-
-        // --- SYSTEME DE MESURE ---
-        function enableMouseCoords() {
-            overlay.classList.remove('hidden');
-            overlay.onmousemove = (e) => {
-                const rect = overlay.getBoundingClientRect();
-                const relX = (e.clientX - rect.left) / rect.width;
-                const relY = (e.clientY - rect.top) / rect.height;
-
-                // Coordonnées PDF (A4 standard: 595 x 842 points)
-                const pdfX = Math.round(relX * 595);
-                const pdfY = Math.round((1 - relY) * 842); // Inverse car 0 est en bas
-
-                tooltip.style.display = 'block';
-                tooltip.style.left = (e.clientX + 15) + 'px';
-                tooltip.style.top = (e.clientY + 15) + 'px';
-                tooltip.innerText = `X: ${pdfX}, Y: ${pdfY}`;
-            };
-            
-            overlay.onmouseleave = () => { tooltip.style.display = 'none'; };
-            
-            overlay.onclick = (e) => {
-                console.log(`CLIC : { x: ${tooltip.innerText.split(',')[0].split(':')[1].trim()}, y: ${tooltip.innerText.split(',')[1].split(':')[1].trim()} }`);
-            };
-        }
-
-        function drawCross(page, x, y) {
-            const s = 12;
-            page.drawLine({ start: {x, y}, end: {x: x+s, y: y+s}, thickness: 2, color: rgb(0,0,0) });
-            page.drawLine({ start: {x: x+s, y}, end: {x, y: y+s}, thickness: 2, color: rgb(0,0,0) });
-        }
-
-        async function embedImg(doc, buf) {
-            try { return await doc.embedJpg(buf); } 
-            catch { return await doc.embedPng(buf); }
-        }
-
-        document.getElementById('dlBtn').onclick = () => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(finalBlob);
-            a.download = "signe_" + fileName;
-            a.click();
-        };
     </script>
 </body>
 </html>
