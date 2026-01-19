@@ -136,32 +136,32 @@
             processFTC(p1, p2);
         };
         // --- FONCTION DE DÉBOGAGE : DESSINE UNE GRILLE ---
-function drawDebugGrid(page) {
-    const { width, height } = page.getSize();
-    const fontSize = 8;
+        function drawDebugGrid(page) {
+            const { width, height } = page.getSize();
+            const fontSize = 8;
 
-    // Dessiner les lignes verticales
-    for (let x = 0; x <= width; x += 50) {
-        page.drawLine({
-            start: { x, y: 0 },
-            end: { x, y: height },
-            thickness: 0.5,
-            color: rgb(0.8, 0.8, 0.8), // Gris clair
-        });
-        page.drawText(x.toString(), { x: x + 2, y: 10, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
-    }
+            // Dessiner les lignes verticales
+            for (let x = 0; x <= width; x += 10) {
+                page.drawLine({
+                    start: { x, y: 0 },
+                    end: { x, y: height },
+                    thickness: 0.5,
+                    color: rgb(0.8, 0.8, 0.8), // Gris clair
+                });
+                page.drawText(x.toString(), { x: x + 2, y: 10, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
+            }
 
-    // Dessiner les lignes horizontales
-    for (let y = 0; y <= height; y += 50) {
-        page.drawLine({
-            start: { x: 0, y },
-            end: { x: width, y },
-            thickness: 0.5,
-            color: rgb(0.8, 0.8, 0.8),
-        });
-        page.drawText(y.toString(), { x: 10, y: y + 2, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
-    }
-};
+            // Dessiner les lignes horizontales
+            for (let y = 0; y <= height; y += 10) {
+                page.drawLine({
+                    start: { x: 0, y },
+                    end: { x: width, y },
+                    thickness: 0.5,
+                    color: rgb(0.8, 0.8, 0.8),
+                });
+                page.drawText(y.toString(), { x: 10, y: y + 2, size: fontSize, color: rgb(0.5, 0.5, 0.5) });
+            }
+        };
 
         // --- FONCTION SPECIFIQUE : FTC.pdf ---
         async function processFTC(buf1, buf2) {
@@ -172,6 +172,7 @@ function drawDebugGrid(page) {
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
                 drawDebugGrid(page);
+                
 
                 // 2. Traitement du masque binaire (croix)
                 if (extraData) {
