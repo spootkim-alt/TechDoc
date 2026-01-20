@@ -3,172 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générateur FTC Photos</title>
+    <title>FTC Photo - Mobile Ready</title>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            --primary: #ff6b35;
-            --bg-dark: #0f1419;
-            --bg-card: #1a1f2e;
-            --text-primary: #e8eaed;
-            --border: #3a4557;
-        }
         body {
-            font-family: sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            height: 100vh;
+            font-family: -apple-system, sans-serif;
+            background: #0f1419;
+            color: #e8eaed;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-        }
-        header {
-            background: var(--bg-card);
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
-        }
-        #uploadOverlay {
-            position: fixed; inset: 0;
-            background: rgba(15, 20, 25, 0.98);
-            z-index: 1000;
-            display: flex; justify-content: center; align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
         }
         .card {
-            background: var(--bg-card);
-            padding: 2.5rem; border-radius: 16px;
-            text-align: center; max-width: 400px;
-            border: 1px solid var(--border);
-        }
-        .upload-area { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-        .upload-zone {
-            flex: 1; padding: 1.5rem; border: 2px dashed var(--border);
-            border-radius: 12px; cursor: pointer; transition: 0.3s;
-        }
-        .upload-zone.active { border-color: #4caf50; background: rgba(76, 175, 80, 0.05); }
-        button {
-            background: var(--primary); color: white; border: none;
-            padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer;
+            background: #1a1f2e;
+            padding: 2rem;
+            border-radius: 20px;
             width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #3a4557;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
-        #pdfContainer { flex: 1; background: #2c313c; }
-        iframe { width: 100%; height: 100%; border: none; }
-        .hidden { display: none !important; }
+        h2 { color: #ff6b35; margin-bottom: 20px; }
+        .upload-area { display: flex; gap: 15px; margin-bottom: 25px; }
+        .upload-zone {
+            flex: 1; padding: 20px 10px; border: 2px dashed #3a4557;
+            border-radius: 15px; cursor: pointer; background: rgba(255,255,255,0.02);
+        }
+        .upload-zone.active { border-color: #4caf50; background: rgba(76, 175, 80, 0.1); }
+        .upload-zone span { display: block; font-size: 0.8rem; margin-top: 10px; }
+        
+        #startBtn, #downloadLink {
+            display: block; width: 100%; padding: 15px;
+            background: #ff6b35; color: white; border: none;
+            border-radius: 12px; font-weight: bold; font-size: 1rem;
+            text-decoration: none; cursor: pointer; transition: 0.3s;
+        }
+        #startBtn:disabled { background: #3a4557; cursor: not-allowed; }
+        
+        #downloadArea { display: none; margin-top: 20px; width: 100%; }
+        #downloadLink { background: #4caf50; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="uploadOverlay">
-        <div class="card">
-            <h2 style="color: var(--primary); margin-bottom: 15px;">Insertion Photos FTC</h2>
-            <p style="font-size: 0.9rem; color: #a8adb5; margin-bottom: 20px;">Sélectionnez vos deux photos d'intervention</p>
-            <div class="upload-area">
-                <div class="upload-zone" id="zone1" onclick="document.getElementById('p1').click()">
-                    <input type="file" id="p1" accept="image/*" class="hidden">
-                    <span>📸 Photo 1</span>
-                </div>
-                <div class="upload-zone" id="zone2" onclick="document.getElementById('p2').click()">
-                    <input type="file" id="p2" accept="image/*" class="hidden">
-                    <span>📸 Photo 2</span>
-                </div>
+    <div class="card" id="mainCard">
+        <h2>📋 Fiche FTC</h2>
+        <p style="margin-bottom: 20px; color: #a8adb5;">Ajoutez les photos pour générer le PDF</p>
+
+        <div class="upload-area">
+            <div class="upload-zone" id="z1" onclick="document.getElementById('p1').click()">
+                <input type="file" id="p1" accept="image/*" class="hidden">
+                <div style="font-size: 1.5rem;">📸</div>
+                <span>Photo 1</span>
             </div>
-            <button id="startBtn" disabled>Générer le PDF</button>
+            <div class="upload-zone" id="z2" onclick="document.getElementById('p2').click()">
+                <input type="file" id="p2" accept="image/*" class="hidden">
+                <div style="font-size: 1.5rem;">📸</div>
+                <span>Photo 2</span>
+            </div>
+        </div>
+
+        <button id="startBtn" disabled>CRÉER LE DOCUMENT</button>
+
+        <div id="downloadArea">
+            <div style="margin: 20px 0; color: #4caf50; font-weight: bold;">✅ PDF Prêt !</div>
+            <a id="downloadLink" href="#">TÉLÉCHARGER LE PDF</a>
+            <p style="margin-top: 15px; font-size: 0.8rem; color: #a8adb5;">Cliquez ci-dessus pour ouvrir le fichier</p>
         </div>
     </div>
 
-    <header>
-        <div style="font-weight:bold; color:var(--primary)">Aperçu Document</div>
-        <button id="dlBtn" class="hidden" style="width: auto;">⬇️ Télécharger</button>
-    </header>
-
-    <main id="pdfContainer">
-        <iframe id="viewer"></iframe>
-    </main>
-
     <script>
         const { PDFDocument } = PDFLib;
-
-        // Dimensions fixes pour le centrage
-        const PHOTO_WIDTH = 175;
-        const PHOTO_HEIGHT = 110;
-
-        let imgBuf1, imgBuf2;
+        let img1, img2;
         const urlParams = new URLSearchParams(window.location.search);
         const fileName = urlParams.get('file')?.split('/')[0] || "FTC.pdf";
 
-        // Gestion des fichiers
-        ['p1', 'p2'].forEach((id, idx) => {
-            const input = document.getElementById(id);
-            input.onchange = async (e) => {
-                if(e.target.files[0]) {
-                    const buf = await e.target.files[0].arrayBuffer();
-                    if (id === 'p1') imgBuf1 = buf; else imgBuf2 = buf;
-                    document.getElementById('zone' + (idx+1)).classList.add('active');
-                    document.getElementById('startBtn').disabled = !(imgBuf1 && imgBuf2);
-                }
-            };
-        });
-
-        document.getElementById('startBtn').onclick = async () => {
-            document.getElementById('startBtn').innerText = 'Génération...';
-            await generate();
-            document.getElementById('uploadOverlay').classList.add('hidden');
+        // Sélection des fichiers
+        document.getElementById('p1').onchange = async (e) => {
+            if(e.target.files[0]) {
+                img1 = await e.target.files[0].arrayBuffer();
+                document.getElementById('z1').classList.add('active');
+                check();
+            }
+        };
+        document.getElementById('p2').onchange = async (e) => {
+            if(e.target.files[0]) {
+                img2 = await e.target.files[0].arrayBuffer();
+                document.getElementById('z2').classList.add('active');
+                check();
+            }
         };
 
-        async function generate() {
+        function check() { document.getElementById('startBtn').disabled = !(img1 && img2); }
+
+        document.getElementById('startBtn').onclick = async function() {
+            this.innerText = "Traitement en cours...";
+            this.disabled = true;
+
             try {
                 const res = await fetch(fileName);
                 const pdfBytes = await res.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const page = pdfDoc.getPages()[0];
 
-                // Insertion et centrage des photos
-                const i1 = await embed(pdfDoc, imgBuf1);
-                const i2 = await embed(pdfDoc, imgBuf2);
+                const i1 = await embed(pdfDoc, img1);
+                const i2 = await embed(pdfDoc, img2);
 
-                // Photo 1 : Centre à (170, 220)
-                page.drawImage(i1, { 
-                    x: 170 - (PHOTO_WIDTH / 2), 
-                    y: 220 - (PHOTO_HEIGHT / 2), 
-                    width: PHOTO_WIDTH, 
-                    height: PHOTO_HEIGHT 
-                });
-
-                // Photo 2 : Centre à (380, 220)
-                page.drawImage(i2, { 
-                    x: 380 - (PHOTO_WIDTH / 2), 
-                    y: 220 - (PHOTO_HEIGHT / 2), 
-                    width: PHOTO_WIDTH, 
-                    height: PHOTO_HEIGHT 
-                });
+                const W = 175, H = 110;
+                // Photo 1 centrée sur (170, 220)
+                page.drawImage(i1, { x: 170-(W/2), y: 220-(H/2), width: W, height: H });
+                // Photo 2 centrée sur (380, 220)
+                page.drawImage(i2, { x: 380-(W/2), y: 220-(H/2), width: W, height: H });
 
                 const finalBytes = await pdfDoc.save();
                 const blob = new Blob([finalBytes], { type: 'application/pdf' });
                 const blobUrl = URL.createObjectURL(blob);
 
-                // Affichage
-                document.getElementById('viewer').src = blobUrl;
-                const dlBtn = document.getElementById('dlBtn');
-                dlBtn.classList.remove('hidden');
+                // Affichage du bouton de téléchargement final
+                document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('downloadArea').style.display = 'block';
                 
-                dlBtn.onclick = () => {
-                    const a = document.createElement('a');
-                    a.href = blobUrl;
-                    a.download = "FTC_Photos.pdf";
-                    a.click();
-                };
+                const link = document.getElementById('downloadLink');
+                link.href = blobUrl;
+                link.download = "FTC_Finalise.pdf";
 
-                // Auto-téléchargement pour mobile
-                if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                    dlBtn.click();
-                }
-
-            } catch (e) { alert("Erreur : " + e.message); }
-        }
+            } catch (err) {
+                alert("Erreur: Vérifiez que " + fileName + " est bien au même endroit que cette page.");
+                this.innerText = "CRÉER LE DOCUMENT";
+                this.disabled = false;
+            }
+        };
 
         async function embed(doc, buf) {
             try { return await doc.embedJpg(buf); } catch { return await doc.embedPng(buf); }
