@@ -3,124 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FTC - Inspecteur de Champss</title>
+    <title>FTC Auto-Fill</title>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, sans-serif;
-            background: #0f1419;
-            color: #e8eaed;
+            background: #0f1419; color: #e8eaed;
             display: flex; flex-direction: column; align-items: center;
-            min-height: 100vh; padding: 20px;
+            justify-content: center; min-height: 100vh; padding: 20px;
         }
         .card {
-            background: #1a1f2e; padding: 2rem; border-radius: 20px;
-            width: 100%; max-width: 500px; text-align: center;
+            background: #1a1f2e; padding: 2.5rem; border-radius: 20px;
+            width: 100%; max-width: 450px; text-align: center;
             border: 1px solid #3a4557; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         h2 { color: #ff6b35; margin-bottom: 20px; }
         .upload-area { display: flex; gap: 15px; margin-bottom: 25px; }
         .upload-zone {
             flex: 1; padding: 20px 10px; border: 2px dashed #3a4557;
-            border-radius: 15px; cursor: pointer; background: rgba(255,255,255,0.02);
+            border-radius: 15px; cursor: pointer; transition: 0.3s;
         }
         .upload-zone.active { border-color: #4caf50; background: rgba(76, 175, 80, 0.1); }
-        
         #startBtn, #downloadLink {
             display: block; width: 100%; padding: 15px;
             background: #ff6b35; color: white; border: none;
             border-radius: 12px; font-weight: bold; text-decoration: none; cursor: pointer;
         }
-        #startBtn:disabled { background: #3a4557; opacity: 0.5; }
-
-        /* Style du conteneur de diagnostic */
-        #inspector {
-            margin-top: 20px; width: 100%; max-width: 500px;
-            background: #000; border-radius: 12px; padding: 15px;
-            font-family: monospace; font-size: 0.85rem; text-align: left;
-            border: 1px solid #4caf50; display: none;
-        }
-        .field-item { border-bottom: 1px solid #222; padding: 5px 0; display: flex; justify-content: space-between; }
-        .field-name { color: #4caf50; font-weight: bold; }
-        .field-type { color: #888; }
-        
+        #startBtn:disabled { background: #3a4557; cursor: not-allowed; }
         #downloadArea { display: none; margin-top: 20px; width: 100%; }
-        #downloadLink { background: #4caf50; margin-bottom: 10px; }
+        #downloadLink { background: #4caf50; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>📋 Fiche FTC + Inspecteur</h2>
-        
+        <h2>📋 Fiche FTC</h2>
+        <p style="margin-bottom: 20px; color: #a8adb5;">Remplissage automatique par formulaire</p>
+
         <div class="upload-area">
             <div class="upload-zone" id="z1" onclick="document.getElementById('p1').click()">
                 <input type="file" id="p1" accept="image/*" class="hidden">
-                <span>📸 Photo 1</span>
+                <div>📸 Photo 1</div>
             </div>
             <div class="upload-zone" id="z2" onclick="document.getElementById('p2').click()">
                 <input type="file" id="p2" accept="image/*" class="hidden">
-                <span>📸 Photo 2</span>
+                <div>📸 Photo 2</div>
             </div>
         </div>
 
-        <button id="startBtn" disabled>ANALYSER ET GÉNÉRER</button>
+        <button id="startBtn" disabled>GÉNÉRER LE DOSSIER</button>
 
         <div id="downloadArea">
+            <div style="margin-bottom: 15px; color: #4caf50;">✅ PDF complété avec succès !</div>
             <a id="downloadLink" href="#">TÉLÉCHARGER LE PDF</a>
-        </div>
-
-        <div id="inspector">
-            <div style="color: #4caf50; margin-bottom: 10px; border-bottom: 1px solid #4caf50;">🔍 Champs détectés dans le PDF :</div>
-            <div id="fieldsList"></div>
         </div>
     </div>
 
     <script>
-        const { PDFDocument, rgb } = PDFLib;
+        const { PDFDocument } = PDFLib;
         let img1, img2;
+
+        // Ordre exact de ton masque binaire (Position 1 à 14)
+        const FIELD_MAP = [
+            "GaineVerteExt",
+            "RegardDeRaccordement",
+            "Tubes IRO",
+            "Gaine protection",
+            "Une gaine t#C3#A9l#C3#A9com",
+            "Une goulotte",
+            "Maison #C3#A0 raccorder",
+            "Installation #C3#A9lectrique",
+            "Acc#C3#A8s au local technique",
+            "Sondage",
+            "Local technique",
+            "D#C3#A9bouchage",
+            "Un #C3#A9lagage",
+            "D#C3#A9lais travaux"
+        ];
 
         const urlParams = new URLSearchParams(window.location.search);
         const rawParam = urlParams.get('file') || "FTC2.pdf";
         const [fileName, extraData] = rawParam.split('/');
 
-        // Sélection fichiers
+        // Sélection photos
         document.getElementById('p1').onchange = async (e) => { if(e.target.files[0]) { img1 = await e.target.files[0].arrayBuffer(); document.getElementById('z1').classList.add('active'); check(); } };
         document.getElementById('p2').onchange = async (e) => { if(e.target.files[0]) { img2 = await e.target.files[0].arrayBuffer(); document.getElementById('z2').classList.add('active'); check(); } };
         function check() { document.getElementById('startBtn').disabled = !(img1 && img2); }
 
         document.getElementById('startBtn').onclick = async function() {
-            this.innerText = "Analyse...";
+            this.innerText = "Création du PDF...";
+            this.disabled = true;
+
             try {
                 const res = await fetch(fileName);
                 const pdfBytes = await res.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
-                
-                // --- INSPECTION DES CHAMPS ---
                 const form = pdfDoc.getForm();
-                const fields = form.getFields();
-                const listContainer = document.getElementById('fieldsList');
-                const inspector = document.getElementById('inspector');
-                listContainer.innerHTML = "";
-                
-                if (fields.length === 0) {
-                    listContainer.innerHTML = "<span style='color:red;'>Aucun champ formulaire détecté.</span>";
-                } else {
-                    fields.forEach(field => {
-                        const type = field.constructor.name;
-                        const name = field.getName();
-                        listContainer.innerHTML += `
-                            <div class="field-item">
-                                <span class="field-name">${name}</span>
-                                <span class="field-type">${type}</span>
-                            </div>`;
-                    });
-                }
-                inspector.style.display = "block";
 
-                // --- GÉNÉRATION HABITUELLE ---
+                // 1. REMPLISSAGE DES CHAMPS BINAIRES
+                if (extraData) {
+                    const [mask, comment] = extraData.split(',');
+                    
+                    // On boucle sur notre FIELD_MAP
+                    FIELD_MAP.forEach((fieldName, index) => {
+                        if (mask[index] === "1") {
+                            try {
+                                const field = form.getField(fieldName);
+                                if (field.constructor.name === 'PDFCheckBox') {
+                                    field.check();
+                                } else if (field.constructor.name === 'PDFTextField') {
+                                    field.setText('X');
+                                }
+                            } catch (e) { console.warn("Champ non trouvé : " + fieldName); }
+                        }
+                    });
+
+                    // 2. REMPLISSAGE DU COMMENTAIRE
+                    if (comment) {
+                        try {
+                            const commentField = form.getTextField('Commentaire');
+                            commentField.setText(decodeURIComponent(comment));
+                        } catch (e) { console.warn("Champ 'Commentaire' non trouvé"); }
+                    }
+                }
+
+                // 3. INSERTION DES PHOTOS
                 const page = pdfDoc.getPages()[0];
                 const i1 = await embed(pdfDoc, img1);
                 const i2 = await embed(pdfDoc, img2);
@@ -128,17 +137,21 @@
                 page.drawImage(i1, { x: 170-(W/2), y: 220-(H/2), width: W, height: H });
                 page.drawImage(i2, { x: 380-(W/2), y: 220-(H/2), width: W, height: H });
 
+                // Optionnel : verrouille le formulaire pour qu'on ne puisse plus le modifier
+                // form.flatten();
+
                 const finalBytes = await pdfDoc.save();
                 const blobUrl = URL.createObjectURL(new Blob([finalBytes], { type: 'application/pdf' }));
                 
+                document.getElementById('startBtn').classList.add('hidden');
                 document.getElementById('downloadArea').style.display = 'block';
                 document.getElementById('downloadLink').href = blobUrl;
-                document.getElementById('downloadLink').download = "FTC_Inspecte.pdf";
-                this.innerText = "ANALYSER ET GÉNÉRER";
+                document.getElementById('downloadLink').download = "FTC_Final.pdf";
 
             } catch (err) {
-                alert("Erreur lors de la lecture du PDF.");
-                console.error(err);
+                alert("Erreur critique : " + err.message);
+                this.innerText = "GÉNÉRER LE DOSSIER";
+                this.disabled = false;
             }
         };
 
