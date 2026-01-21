@@ -39,7 +39,7 @@
 <body>
 
     <div class="card">
-        <h2>📋 Fiche FTC</h2>
+        <h2>📋 Fiche Travaux Client</h2>
         <p style="margin-bottom: 20px; color: #a8adb5;">Remplissage automatique par formulaire</p>
 
         <div class="upload-area">
@@ -141,8 +141,8 @@ if (extraData) {
                 const i1 = await embed(pdfDoc, img1);
                 const i2 = await embed(pdfDoc, img2);
                 const W = 175, H = 110;
-                page.drawImage(i1, { x: 170-(W/2), y: 220-(H/2), width: W, height: H });
-                page.drawImage(i2, { x: 380-(W/2), y: 220-(H/2), width: W, height: H });
+                page.drawImage(i1, { x: 170-(W/2), y: 170-(H/2), width: W, height: H });
+                page.drawImage(i2, { x: 380-(W/2), y: 170-(H/2), width: W, height: H });
 
                 // Optionnel : verrouille le formulaire pour qu'on ne puisse plus le modifier
                 // form.flatten();
