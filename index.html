@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FTC Photo - Mobile Ready</title>
+    <title>FTC - Inspecteur de Champs</title>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -11,22 +11,13 @@
             font-family: -apple-system, sans-serif;
             background: #0f1419;
             color: #e8eaed;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 20px;
         }
         .card {
-            background: #1a1f2e;
-            padding: 2rem;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            border: 1px solid #3a4557;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #1a1f2e; padding: 2rem; border-radius: 20px;
+            width: 100%; max-width: 500px; text-align: center;
+            border: 1px solid #3a4557; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         h2 { color: #ff6b35; margin-bottom: 20px; }
         .upload-area { display: flex; gap: 15px; margin-bottom: 25px; }
@@ -35,108 +26,119 @@
             border-radius: 15px; cursor: pointer; background: rgba(255,255,255,0.02);
         }
         .upload-zone.active { border-color: #4caf50; background: rgba(76, 175, 80, 0.1); }
-        .upload-zone span { display: block; font-size: 0.8rem; margin-top: 10px; }
         
         #startBtn, #downloadLink {
             display: block; width: 100%; padding: 15px;
             background: #ff6b35; color: white; border: none;
-            border-radius: 12px; font-weight: bold; font-size: 1rem;
-            text-decoration: none; cursor: pointer; transition: 0.3s;
+            border-radius: 12px; font-weight: bold; text-decoration: none; cursor: pointer;
         }
-        #startBtn:disabled { background: #3a4557; cursor: not-allowed; }
+        #startBtn:disabled { background: #3a4557; opacity: 0.5; }
+
+        /* Style du conteneur de diagnostic */
+        #inspector {
+            margin-top: 20px; width: 100%; max-width: 500px;
+            background: #000; border-radius: 12px; padding: 15px;
+            font-family: monospace; font-size: 0.85rem; text-align: left;
+            border: 1px solid #4caf50; display: none;
+        }
+        .field-item { border-bottom: 1px solid #222; padding: 5px 0; display: flex; justify-content: space-between; }
+        .field-name { color: #4caf50; font-weight: bold; }
+        .field-type { color: #888; }
         
         #downloadArea { display: none; margin-top: 20px; width: 100%; }
-        #downloadLink { background: #4caf50; }
+        #downloadLink { background: #4caf50; margin-bottom: 10px; }
         .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="card" id="mainCard">
-        <h2>📋 Fiche FTC</h2>
-        <p style="margin-bottom: 20px; color: #a8adb5;">Ajoutez les photos pour générer le PDF</p>
-
+    <div class="card">
+        <h2>📋 Fiche FTC + Inspecteur</h2>
+        
         <div class="upload-area">
             <div class="upload-zone" id="z1" onclick="document.getElementById('p1').click()">
                 <input type="file" id="p1" accept="image/*" class="hidden">
-                <div style="font-size: 1.5rem;">📸</div>
-                <span>Photo 1</span>
+                <span>📸 Photo 1</span>
             </div>
             <div class="upload-zone" id="z2" onclick="document.getElementById('p2').click()">
                 <input type="file" id="p2" accept="image/*" class="hidden">
-                <div style="font-size: 1.5rem;">📸</div>
-                <span>Photo 2</span>
+                <span>📸 Photo 2</span>
             </div>
         </div>
 
-        <button id="startBtn" disabled>CRÉER LE DOCUMENT</button>
+        <button id="startBtn" disabled>ANALYSER ET GÉNÉRER</button>
 
         <div id="downloadArea">
-            <div style="margin: 20px 0; color: #4caf50; font-weight: bold;">✅ PDF Prêt !</div>
             <a id="downloadLink" href="#">TÉLÉCHARGER LE PDF</a>
-            <p style="margin-top: 15px; font-size: 0.8rem; color: #a8adb5;">Cliquez ci-dessus pour ouvrir le fichier</p>
+        </div>
+
+        <div id="inspector">
+            <div style="color: #4caf50; margin-bottom: 10px; border-bottom: 1px solid #4caf50;">🔍 Champs détectés dans le PDF :</div>
+            <div id="fieldsList"></div>
         </div>
     </div>
 
     <script>
-        const { PDFDocument } = PDFLib;
+        const { PDFDocument, rgb } = PDFLib;
         let img1, img2;
+
         const urlParams = new URLSearchParams(window.location.search);
-        const fileName = urlParams.get('file')?.split('/')[0] || "FTC.pdf";
+        const rawParam = urlParams.get('file') || "FTC.pdf";
+        const [fileName, extraData] = rawParam.split('/');
 
-        // Sélection des fichiers
-        document.getElementById('p1').onchange = async (e) => {
-            if(e.target.files[0]) {
-                img1 = await e.target.files[0].arrayBuffer();
-                document.getElementById('z1').classList.add('active');
-                check();
-            }
-        };
-        document.getElementById('p2').onchange = async (e) => {
-            if(e.target.files[0]) {
-                img2 = await e.target.files[0].arrayBuffer();
-                document.getElementById('z2').classList.add('active');
-                check();
-            }
-        };
-
+        // Sélection fichiers
+        document.getElementById('p1').onchange = async (e) => { if(e.target.files[0]) { img1 = await e.target.files[0].arrayBuffer(); document.getElementById('z1').classList.add('active'); check(); } };
+        document.getElementById('p2').onchange = async (e) => { if(e.target.files[0]) { img2 = await e.target.files[0].arrayBuffer(); document.getElementById('z2').classList.add('active'); check(); } };
         function check() { document.getElementById('startBtn').disabled = !(img1 && img2); }
 
         document.getElementById('startBtn').onclick = async function() {
-            this.innerText = "Traitement en cours...";
-            this.disabled = true;
-
+            this.innerText = "Analyse...";
             try {
                 const res = await fetch(fileName);
                 const pdfBytes = await res.arrayBuffer();
                 const pdfDoc = await PDFDocument.load(pdfBytes);
-                const page = pdfDoc.getPages()[0];
+                
+                // --- INSPECTION DES CHAMPS ---
+                const form = pdfDoc.getForm();
+                const fields = form.getFields();
+                const listContainer = document.getElementById('fieldsList');
+                const inspector = document.getElementById('inspector');
+                listContainer.innerHTML = "";
+                
+                if (fields.length === 0) {
+                    listContainer.innerHTML = "<span style='color:red;'>Aucun champ formulaire détecté.</span>";
+                } else {
+                    fields.forEach(field => {
+                        const type = field.constructor.name;
+                        const name = field.getName();
+                        listContainer.innerHTML += `
+                            <div class="field-item">
+                                <span class="field-name">${name}</span>
+                                <span class="field-type">${type}</span>
+                            </div>`;
+                    });
+                }
+                inspector.style.display = "block";
 
+                // --- GÉNÉRATION HABITUELLE ---
+                const page = pdfDoc.getPages()[0];
                 const i1 = await embed(pdfDoc, img1);
                 const i2 = await embed(pdfDoc, img2);
-
                 const W = 175, H = 110;
-                // Photo 1 centrée sur (170, 220)
                 page.drawImage(i1, { x: 170-(W/2), y: 220-(H/2), width: W, height: H });
-                // Photo 2 centrée sur (380, 220)
                 page.drawImage(i2, { x: 380-(W/2), y: 220-(H/2), width: W, height: H });
 
                 const finalBytes = await pdfDoc.save();
-                const blob = new Blob([finalBytes], { type: 'application/pdf' });
-                const blobUrl = URL.createObjectURL(blob);
-
-                // Affichage du bouton de téléchargement final
-                document.getElementById('startBtn').classList.add('hidden');
-                document.getElementById('downloadArea').style.display = 'block';
+                const blobUrl = URL.createObjectURL(new Blob([finalBytes], { type: 'application/pdf' }));
                 
-                const link = document.getElementById('downloadLink');
-                link.href = blobUrl;
-                link.download = "FTC_Finalise.pdf";
+                document.getElementById('downloadArea').style.display = 'block';
+                document.getElementById('downloadLink').href = blobUrl;
+                document.getElementById('downloadLink').download = "FTC_Inspecte.pdf";
+                this.innerText = "ANALYSER ET GÉNÉRER";
 
             } catch (err) {
-                alert("Erreur: Vérifiez que " + fileName + " est bien au même endroit que cette page.");
-                this.innerText = "CRÉER LE DOCUMENT";
-                this.disabled = false;
+                alert("Erreur lors de la lecture du PDF.");
+                console.error(err);
             }
         };
 
