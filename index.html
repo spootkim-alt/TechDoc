@@ -102,32 +102,39 @@
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const form = pdfDoc.getForm();
 
-                // 1. REMPLISSAGE DES CHAMPS BINAIRES
-                if (extraData) {
-                    const [mask, comment] = extraData.split(',');
-                    
-                    // On boucle sur notre FIELD_MAP
-                    FIELD_MAP.forEach((fieldName, index) => {
-                        if (mask[index] === "1") {
-                            try {
-                                const field = form.getField(fieldName);
-                                if (field.constructor.name === 'PDFCheckBox') {
-                                    field.check();
-                                } else if (field.constructor.name === 'PDFTextField') {
-                                    field.setText('X');
-                                }
-                            } catch (e) { console.warn("Champ non trouvé : " + fieldName); }
-                        }
-                    });
-
-                    // 2. REMPLISSAGE DU COMMENTAIRE
-                    if (comment) {
-                        try {
-                            const commentField = form.getTextField('Commentaire');
-                            commentField.setText(decodeURIComponent(comment));
-                        } catch (e) { console.warn("Champ 'Commentaire' non trouvé"); }
-                    }
+                // --- LOGIQUE DE REMPLISSAGE OPTIMISÉE POUR CHECKBOX ---
+if (extraData) {
+    const [mask, comment] = extraData.split(',');
+    
+    FIELD_MAP.forEach((fieldName, index) => {
+        if (mask[index] === "1") {
+            try {
+                // On récupère le champ par son nom exact
+                const field = form.getField(fieldName);
+                
+                // On vérifie si c'est bien une CheckBox
+                if (field.constructor.name === 'PDFCheckBox' || typeof field.check === 'function') {
+                    field.check(); 
+                } else {
+                    // Si par erreur c'est un champ texte, on met un X
+                    field.setText('X');
                 }
+            } catch (e) { 
+                console.warn("Impossible de cocher : " + fieldName); 
+            }
+        }
+    });
+
+    // Remplissage du champ Commentaire
+    if (comment) {
+        try {
+            const commentField = form.getTextField('Commentaire');
+            commentField.setText(decodeURIComponent(comment));
+        } catch (e) { 
+            console.warn("Champ 'Commentaire' absent du PDF"); 
+        }
+    }
+}
 
                 // 3. INSERTION DES PHOTOS
                 const page = pdfDoc.getPages()[0];
