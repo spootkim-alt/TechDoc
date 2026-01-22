@@ -40,7 +40,7 @@
 
     <div class="card">
         <h2>📋 Fiche Travaux Client</h2>
-        <p id="statusMsg" style="margin-bottom: 20px; color: #a8adb5;">Veuillez charger les photos</p>
+        <p id="statusMsg" style="margin-bottom: 20px; color: #a8adb5;">Veuillez ajouter les 2 photos</p>
 
         <div class="upload-area">
             <div class="upload-zone" id="z1" onclick="document.getElementById('p1').click()">
@@ -56,7 +56,7 @@
         <button id="startBtn" disabled>GÉNÉRER LE DOSSIER</button>
 
         <div id="downloadArea">
-            <div style="margin-bottom: 15px; color: #4caf50;">✅ PDF prêt !</div>
+            <div style="margin-bottom: 15px; color: #4caf50;">✅ PDF généré avec succès !</div>
             <a id="downloadLink" href="#">TÉLÉCHARGER LE PDF</a>
         </div>
     </div>
@@ -65,7 +65,7 @@
         const { PDFDocument } = PDFLib;
         let img1, img2;
 
-        // Configuration des champs (Gestion des noms spéciaux)
+        // On utilise ici les noms de champs exacts de ton PDF
         const FIELD_MAP = [
             "GaineVerteExt", "RegardDeRaccordement", "Tubes IRO", "Gaine protection",
             "Une gaine t#C3#A9l#C3#A9com", "Une goulotte", "Maison #C3#A0 raccorder",
@@ -73,56 +73,59 @@
             "Sondage", "Local technique", "D#C3#A9bouchage", "Un #C3#A9lagage", "D#C3#A9lais travaux"
         ];
 
-        // Lecture de l'URL
+        // On récupère le paramètre "file" dans l'URL
         const urlParams = new URLSearchParams(window.location.search);
-        const rawParam = urlParams.get('file') || "FTC3.pdf";
+        const rawParam = urlParams.get('file') || "FTC3.pdf"; // Fallback sur FTC3.pdf
         const [fileName, extraData] = rawParam.split('/');
 
-        // Sélection photos
+        // Gestion des photos
         document.getElementById('p1').onchange = async (e) => { if(e.target.files[0]) { img1 = await e.target.files[0].arrayBuffer(); document.getElementById('z1').classList.add('active'); check(); } };
         document.getElementById('p2').onchange = async (e) => { if(e.target.files[0]) { img2 = await e.target.files[0].arrayBuffer(); document.getElementById('z2').classList.add('active'); check(); } };
         function check() { document.getElementById('startBtn').disabled = !(img1 && img2); }
 
         document.getElementById('startBtn').onclick = async function() {
-            this.innerText = "Traitement en cours...";
+            this.innerText = "Création en cours...";
             this.disabled = true;
 
             try {
-                // Chargement sécurisé du PDF
-                const res = await fetch(fileName);
-                if (!res.ok) throw new Error("Fichier PDF introuvable sur le serveur.");
+                // Chargement du fichier avec paramètre aléatoire pour éviter le cache GitHub
+                const res = await fetch(fileName + '?v=' + Math.random());
+                if (!res.ok) throw new Error("Le fichier " + fileName + " est introuvable sur le serveur.");
+                
                 const pdfBytes = await res.arrayBuffer();
                 
+                // On vérifie que le fichier commence bien par %PDF
+                const header = String.fromCharCode(...new Uint8Array(pdfBytes.slice(0, 4)));
+                if (header !== "%PDF") throw new Error("Le fichier chargé n'est pas un PDF valide (erreur serveur).");
+
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const form = pdfDoc.getForm();
 
-                let finalFileName = "Rapport.pdf";
+                let finalDownloadName = "Rapport_FTC.pdf";
 
                 if (extraData) {
                     const parts = extraData.split(',');
                     const mask = parts[0];
                     const comment = parts[1];
-                    const techInfo = parts[2]; // Contient "Nom_Prenom_HHMMSS" via Power Automate
+                    const techAndDate = parts[2]; // Reçoit "Nom_Prenom_HHMMSS"
 
-                    if (techInfo) {
-                        finalFileName = "FTC_" + decodeURIComponent(techInfo).replace(/[^a-zA-Z0-9_]/g, '_') + ".pdf";
+                    if (techAndDate) {
+                        // On nettoie le nom pour le téléchargement
+                        finalDownloadName = "FTC_" + decodeURIComponent(techAndDate).replace(/[^a-zA-Z0-9_]/g, '_') + ".pdf";
                     }
 
-                    // Remplissage Checkbox
+                    // Cocher les cases
                     FIELD_MAP.forEach((fieldName, index) => {
                         if (mask[index] === "1") {
                             try {
                                 const field = form.getField(fieldName);
-                                if (field.constructor.name === 'PDFCheckBox') {
-                                    field.check();
-                                } else {
-                                    field.setText('X');
-                                }
-                            } catch (e) { console.warn("Champ ignoré : " + fieldName); }
+                                if (field.constructor.name === 'PDFCheckBox') field.check();
+                                else field.setText('X');
+                            } catch (e) { console.warn("Champ non trouvé : " + fieldName); }
                         }
                     });
 
-                    // Commentaire
+                    // Remplir le commentaire
                     if (comment) {
                         try {
                             const commentField = form.getTextField('Commentaire');
@@ -131,7 +134,7 @@
                     }
                 }
 
-                // Insertion photos
+                // Insertion des images
                 const page = pdfDoc.getPages()[0];
                 const i1 = await embed(pdfDoc, img1);
                 const i2 = await embed(pdfDoc, img2);
@@ -143,14 +146,13 @@
                 const blobUrl = URL.createObjectURL(new Blob([finalBytes], { type: 'application/pdf' }));
                 
                 document.getElementById('startBtn').classList.add('hidden');
-                document.getElementById('statusMsg').classList.add('hidden');
+                document.getElementById('statusMsg').innerText = "Fichier prêt !";
                 document.getElementById('downloadArea').style.display = 'block';
                 document.getElementById('downloadLink').href = blobUrl;
-                document.getElementById('downloadLink').download = finalFileName;
+                document.getElementById('downloadLink').download = finalDownloadName;
 
             } catch (err) {
-                console.error(err);
-                alert("Erreur de parsing : Vérifiez que " + fileName + " est bien à la racine du dossier.");
+                alert("Erreur critique : " + err.message);
                 this.innerText = "RÉESSAYER";
                 this.disabled = false;
             }
