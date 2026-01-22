@@ -40,7 +40,7 @@
 
     <div class="card">
         <h2>📋 Fiche Travaux Client</h2>
-        <p style="margin-bottom: 20px; color: #a8adb5;">Remplissage automatique par formulaire</p>
+        <p id="statusMsg" style="margin-bottom: 20px; color: #a8adb5;">Veuillez charger les photos</p>
 
         <div class="upload-area">
             <div class="upload-zone" id="z1" onclick="document.getElementById('p1').click()">
@@ -56,7 +56,7 @@
         <button id="startBtn" disabled>GÉNÉRER LE DOSSIER</button>
 
         <div id="downloadArea">
-            <div style="margin-bottom: 15px; color: #4caf50;">✅ PDF complété avec succès !</div>
+            <div style="margin-bottom: 15px; color: #4caf50;">✅ PDF prêt !</div>
             <a id="downloadLink" href="#">TÉLÉCHARGER LE PDF</a>
         </div>
     </div>
@@ -65,69 +65,73 @@
         const { PDFDocument } = PDFLib;
         let img1, img2;
 
+        // Configuration des champs (Gestion des noms spéciaux)
         const FIELD_MAP = [
             "GaineVerteExt", "RegardDeRaccordement", "Tubes IRO", "Gaine protection",
-            "Une gaine int", "Une goulotte", "Maison #C3#A0 raccorder",
+            "Une gaine t#C3#A9l#C3#A9com", "Une goulotte", "Maison #C3#A0 raccorder",
             "Installation #C3#A9lectrique", "Acc#C3#A8s au local technique",
             "Sondage", "Local technique", "D#C3#A9bouchage", "Un #C3#A9lagage", "D#C3#A9lais travaux"
         ];
 
+        // Lecture de l'URL
         const urlParams = new URLSearchParams(window.location.search);
         const rawParam = urlParams.get('file') || "FTC3.pdf";
         const [fileName, extraData] = rawParam.split('/');
 
+        // Sélection photos
         document.getElementById('p1').onchange = async (e) => { if(e.target.files[0]) { img1 = await e.target.files[0].arrayBuffer(); document.getElementById('z1').classList.add('active'); check(); } };
         document.getElementById('p2').onchange = async (e) => { if(e.target.files[0]) { img2 = await e.target.files[0].arrayBuffer(); document.getElementById('z2').classList.add('active'); check(); } };
         function check() { document.getElementById('startBtn').disabled = !(img1 && img2); }
 
         document.getElementById('startBtn').onclick = async function() {
-            this.innerText = "Création du PDF...";
+            this.innerText = "Traitement en cours...";
             this.disabled = true;
 
             try {
+                // Chargement sécurisé du PDF
                 const res = await fetch(fileName);
+                if (!res.ok) throw new Error("Fichier PDF introuvable sur le serveur.");
                 const pdfBytes = await res.arrayBuffer();
+                
                 const pdfDoc = await PDFDocument.load(pdfBytes);
                 const form = pdfDoc.getForm();
 
-                // On définit une valeur par défaut pour le nom du fichier
-                let finalFileName = "Rapport_FTC.pdf";
+                let finalFileName = "Rapport.pdf";
 
                 if (extraData) {
                     const parts = extraData.split(',');
                     const mask = parts[0];
                     const comment = parts[1];
-                    const nameInUrl = parts[2]; // On récupère le 3ème segment
+                    const techInfo = parts[2]; // Contient "Nom_Prenom_HHMMSS" via Power Automate
 
-                    // Si un nom est présent dans l'URL, on l'utilise (nettoyé)
-                    if (nameInUrl) {
-                        finalFileName = decodeURIComponent(nameInUrl).replace(/[/\\?%*:|"<>]/g, '-') + ".pdf";
+                    if (techInfo) {
+                        finalFileName = "FTC_" + decodeURIComponent(techInfo).replace(/[^a-zA-Z0-9_]/g, '_') + ".pdf";
                     }
 
-                    // Remplissage des Checkbox
+                    // Remplissage Checkbox
                     FIELD_MAP.forEach((fieldName, index) => {
                         if (mask[index] === "1") {
                             try {
                                 const field = form.getField(fieldName);
-                                if (field.constructor.name === 'PDFCheckBox' || typeof field.check === 'function') {
+                                if (field.constructor.name === 'PDFCheckBox') {
                                     field.check();
                                 } else {
                                     field.setText('X');
                                 }
-                            } catch (e) { console.warn("Champ introuvable : " + fieldName); }
+                            } catch (e) { console.warn("Champ ignoré : " + fieldName); }
                         }
                     });
 
-                    // Remplissage du Commentaire
+                    // Commentaire
                     if (comment) {
                         try {
                             const commentField = form.getTextField('Commentaire');
                             commentField.setText(decodeURIComponent(comment));
-                        } catch (e) { console.warn("Champ 'Commentaire' absent"); }
+                        } catch (e) { console.warn("Champ Commentaire absent"); }
                     }
                 }
 
-                // Insertion des photos
+                // Insertion photos
                 const page = pdfDoc.getPages()[0];
                 const i1 = await embed(pdfDoc, img1);
                 const i2 = await embed(pdfDoc, img2);
@@ -139,13 +143,15 @@
                 const blobUrl = URL.createObjectURL(new Blob([finalBytes], { type: 'application/pdf' }));
                 
                 document.getElementById('startBtn').classList.add('hidden');
+                document.getElementById('statusMsg').classList.add('hidden');
                 document.getElementById('downloadArea').style.display = 'block';
                 document.getElementById('downloadLink').href = blobUrl;
                 document.getElementById('downloadLink').download = finalFileName;
 
             } catch (err) {
-                alert("Erreur : " + err.message);
-                this.innerText = "GÉNÉRER LE DOSSIER";
+                console.error(err);
+                alert("Erreur de parsing : Vérifiez que " + fileName + " est bien à la racine du dossier.");
+                this.innerText = "RÉESSAYER";
                 this.disabled = false;
             }
         };
