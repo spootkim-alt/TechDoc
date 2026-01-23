@@ -89,7 +89,7 @@
         ];
 
         const urlParams = new URLSearchParams(window.location.search);
-        const rawParam = urlParams.get('file') || "FTC4.pdf";
+        const rawParam = urlParams.get('file') || "FTC5.pdf";
         const [fileName, extraData] = rawParam.split('/');
 
         document.getElementById('p1').onchange = async (e) => { if(e.target.files[0]) { img1 = await e.target.files[0].arrayBuffer(); document.getElementById('z1').classList.add('active'); check(); } };
